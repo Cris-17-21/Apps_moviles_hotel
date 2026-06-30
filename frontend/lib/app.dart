@@ -6,10 +6,13 @@ import 'package:hoteleria_erp/modulos/recepcion/paginas/pagina_reservas.dart';
 import 'package:hoteleria_erp/modulos/seguridad/paginas/pagina_login.dart';
 import 'package:hoteleria_erp/modulos/seguridad/paginas/pagina_roles.dart';
 import 'package:hoteleria_erp/modulos/seguridad/paginas/pagina_usuarios.dart';
+import 'package:hoteleria_erp/modulos/ventas/paginas/pagina_clientes.dart';
 import 'package:hoteleria_erp/modulos/ventas/paginas/pagina_pos.dart';
+import 'package:hoteleria_erp/modulos/mantenimiento/paginas/pagina_personal_limpieza.dart';
 import 'general/tema/tema_app.dart';
 import 'modulos/inicio/paginas/almacen/almacen.dart';
 import 'modulos/inicio/paginas/compras/compras.dart';
+import 'modulos/inicio/paginas/compras/nueva_compra.dart';
 import 'modulos/inicio/paginas/compras/productos.dart';
 import 'modulos/inicio/paginas/compras/proveedores.dart';
 import 'modulos/inicio/paginas/pagina_inicio.dart';
@@ -43,12 +46,15 @@ class MyApp extends StatelessWidget {
         NombresRutas.reservas: (context) => const PaginaReservas(),
         NombresRutas.checkInOut: (context) => const PaginaCheckInOut(),
         NombresRutas.comprasLista: (context) => const ComprasPage(),
+        NombresRutas.comprasNueva: (context) => const NuevaCompraPage(),
         NombresRutas.pos: (context) => const PaginaPOS(),
         NombresRutas.caja: (context) => const PaginaCaja(),
         NombresRutas.productos: (context) => const ProductosPage(),
         NombresRutas.proveedores: (context) => const ProveedoresPage(),
         NombresRutas.almacen: (context) => const AlmacenPage(),
         NombresRutas.mantenimiento: (context) => const PaginaMantenimiento(),
+        NombresRutas.personalLimpieza: (context) => const PaginaPersonalLimpieza(),
+        NombresRutas.clientes: (context) => const PaginaClientes(),
         NombresRutas.reportes: (context) => const PaginaReportes(),
         // A medida que crees las páginas las vas agregando usando NombresRutas.tuRuta
       },

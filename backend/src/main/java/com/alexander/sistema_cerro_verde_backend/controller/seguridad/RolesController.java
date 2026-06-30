@@ -87,7 +87,7 @@ public ResponseEntity<?> actualizarRol(@RequestBody Roles rol) {
     
     
    
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/roles/{id}")
     public ResponseEntity<Void> eliminarRol(@PathVariable Integer id) {
         Roles existente = rolesService.obtenerRolPorId(id);
         if (existente == null) {

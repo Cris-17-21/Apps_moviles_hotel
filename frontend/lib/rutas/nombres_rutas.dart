@@ -25,9 +25,16 @@ class NombresRutas {
   static const String proveedores = '/proveedores';
   static const String productos = '/productos';
   static const String comprasLista = '/compras-lista';
+  static const String comprasNueva = '/compras-nueva';
   static const String almacen = '/almacen';
 
-  // Otros Módulos
+  // Módulo: Mantenimiento
   static const String mantenimiento = '/mantenimiento';
+  static const String personalLimpieza = '/personal-limpieza';
+
+  // Módulo: Ventas / POS
+  static const String clientes = '/clientes';
+
+  // Otros
   static const String reportes = '/reportes';
 }

@@ -51,6 +51,11 @@ const List<ModeloOpcionesMenu> opcionesDelMenu = [
     titulo: 'Ventas',
     subOpciones: [
       ModeloOpcionesMenu(icono: Icons.shopping_cart, titulo: 'Punto de venta', ruta: NombresRutas.pos),
+      ModeloOpcionesMenu(
+        icono: Icons.people_outline,
+        titulo: 'Clientes',
+        ruta: NombresRutas.clientes,
+      ),
     ],
   ),
   ModeloOpcionesMenu(
@@ -87,7 +92,18 @@ const List<ModeloOpcionesMenu> opcionesDelMenu = [
   ModeloOpcionesMenu(
     icono: Icons.build_outlined,
     titulo: 'Mantenimiento',
-    ruta: NombresRutas.mantenimiento,
+    subOpciones: [
+      ModeloOpcionesMenu(
+        icono: Icons.build_outlined,
+        titulo: 'Tareas',
+        ruta: NombresRutas.mantenimiento,
+      ),
+      ModeloOpcionesMenu(
+        icono: Icons.cleaning_services_outlined,
+        titulo: 'Personal Limpieza',
+        ruta: NombresRutas.personalLimpieza,
+      ),
+    ],
   ),
   ModeloOpcionesMenu(
     icono: Icons.bar_chart_outlined,

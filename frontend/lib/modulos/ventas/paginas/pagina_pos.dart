@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../general/tema/colores_tema.dart';
 import '../../../rutas/nombres_rutas.dart';
+import '../../../core/network/api_client.dart';
 import '../modelos/modelo_producto.dart';
 import '../servicios/pos_service.dart';
 
@@ -121,6 +123,23 @@ class _PaginaPOSState extends State<PaginaPOS> {
       final totalVenta = _total;
       final igvVenta = _igv;
 
+      // Buscar cliente por DNI si se ingresó uno
+      int idCliente = 1; // fallback por defecto
+      final dni = _dniRucController.text.trim();
+      if (dni.isNotEmpty) {
+        try {
+          final response = await ApiClient.get('/cerro-verde/dni/$dni');
+          if (response.statusCode == 200) {
+            final clienteData = jsonDecode(response.body);
+            if (clienteData is Map<String, dynamic> && clienteData.containsKey('id_cliente')) {
+              idCliente = clienteData['id_cliente'] as int;
+            }
+          }
+        } catch (_) {
+          // Si falla la búsqueda, mantener idCliente = 1
+        }
+      }
+
       final ventaPayload = {
         "total": double.parse(totalVenta.toStringAsFixed(2)),
         "descuento": 0.00,
@@ -132,7 +151,7 @@ class _PaginaPOSState extends State<PaginaPOS> {
           "id": 1
         },
         "cliente": {
-          "id_cliente": 1
+          "id_cliente": idCliente
         },
         "detalleVenta": _carrito.entries.map((entry) {
           final p = entry.key;

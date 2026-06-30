@@ -6,12 +6,14 @@ class LayoutPrincipal extends StatelessWidget {
   final Widget cuerpo;
   final String rutaActual;
   final String? tituloBarra;
+  final Widget? floatingActionButton;
 
   const LayoutPrincipal({
     super.key,
     required this.cuerpo,
     required this.rutaActual,
     this.tituloBarra,
+    this.floatingActionButton,
   });
 
   @override
@@ -22,6 +24,7 @@ class LayoutPrincipal extends StatelessWidget {
       body: SafeArea(
         child: cuerpo,
       ),
+      floatingActionButton: floatingActionButton,
     );
   }
 }

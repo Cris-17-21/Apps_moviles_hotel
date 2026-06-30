@@ -79,6 +79,49 @@ class MantenimientoService {
     }
   }
 
+  /// Registra un nuevo miembro del personal de limpieza.
+  static Future<Map<String, dynamic>> crearPersonalLimpieza(Map<String, dynamic> body) async {
+    try {
+      final response = await ApiClient.post(
+        '/cerro-verde/personallimpieza/registrar',
+        body: body,
+      );
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('Error al registrar personal de limpieza: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Actualiza un miembro del personal de limpieza.
+  static Future<void> actualizarPersonalLimpieza(int id, Map<String, dynamic> body) async {
+    try {
+      final response = await ApiClient.put(
+        '/cerro-verde/personallimpieza/actualizar/$id',
+        body: body,
+      );
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Error al actualizar personal de limpieza: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Elimina un miembro del personal de limpieza.
+  static Future<void> eliminarPersonalLimpieza(int id) async {
+    try {
+      final response = await ApiClient.delete('/cerro-verde/personallimpieza/eliminar/$id');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Error al eliminar personal de limpieza: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // ==========================================
   // INCIDENCIAS (INCIDENTS) ENDPOINTS
   // ==========================================

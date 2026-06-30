@@ -1,0 +1,66 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Java 17, Spring Boot 3.4.7 (Web, JPA, Security, Mail, WebFlux/Reactor), MySQL; Flutter/Dart (SDK ^3.11.0)
+  Architecture: Backend uses a layered/MVC style architecture. Flutter app uses standard Flutter layout structure.
+  Testing: JUnit 5, AssertJ, Spring Boot Test (backend); flutter_test (frontend)
+  Style: Standard Java / Spring patterns; Standard Dart lints (package:flutter_lints/flutter.yaml)
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    - Follow existing code patterns
+    tdd: false           # Default strict TDD disabled
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+
+testing:
+  strict_tdd: false
+  detected: 2026-06-30
+  components:
+    backend:
+      runner: "mvnw test"
+      framework: "JUnit Jupiter (Spring Boot Starter Test)"
+      layers:
+        unit: true
+        integration: true
+        e2e: false
+      coverage:
+        available: false
+        command: ""
+      quality:
+        linter: false
+        type_checker: true
+        formatter: false
+    frontend:
+      runner: "flutter test"
+      framework: "flutter_test"
+      layers:
+        unit: true
+        integration: true
+        e2e: false
+      coverage:
+        available: false
+        command: ""
+      quality:
+        linter: true
+        linter_command: "flutter analyze"
+        type_checker: true
+        type_checker_command: "flutter analyze"
+        formatter: true
+        formatter_command: "dart format --set-exit-if-changed ."

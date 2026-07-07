@@ -4,6 +4,7 @@ import '../../../../general/layout/layout_principal.dart';
 import '../../../../general/tema/colores_tema.dart';
 import '../../../../general/tema/estilos_texto.dart';
 import '../../../../rutas/nombres_rutas.dart';
+import '../../../../core/utils/confirmacion.dart';
 import 'servicios/compras_service.dart';
 
 class ComprasPage extends StatefulWidget {
@@ -63,9 +64,9 @@ class _ComprasPageState extends State<ComprasPage> {
       } else {
         _comprasFiltradas = _compras.where((c) {
           final factura =
-              (c['num_comprobante'] ?? '').toString().toLowerCase();
+              (c['numeroDoc'] ?? '').toString().toLowerCase();
           final proveedor =
-              (c['proveedor'] is Map ? c['proveedor']['nombre_proveedor'] ?? '' : '')
+              (c['proveedor'] is Map ? c['proveedor']['razon_social'] ?? '' : '')
                   .toString()
                   .toLowerCase();
           final fecha =
@@ -79,67 +80,28 @@ class _ComprasPageState extends State<ComprasPage> {
   }
 
   Future<void> _confirmarEliminacion(Map<String, dynamic> compra) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text(
-          'Confirmar eliminación',
-          style: TextStyle(color: HotelPMSColors.textoPrincipal),
-        ),
-        content: Text(
-          '¿Está seguro de eliminar la compra '
-          '"${compra['num_comprobante'] ?? ''}"?',
-          style: const TextStyle(color: HotelPMSColors.textoSecundario),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: HotelPMSColors.textoSecundario),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: HotelPMSColors.textoEliminar),
-            ),
-          ),
-        ],
-      ),
+    final confirm = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'compra',
+      nombre: compra['numeroDoc']?.toString(),
     );
-
-    if (confirm != true) return;
+    if (!confirm) return;
 
     try {
       await ComprasService.eliminarCompra(compra['id_compra']);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Compra eliminada exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Compra eliminada exitosamente');
       _cargarCompras();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al eliminar compra: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al eliminar compra: ${e.toString()}');
     }
   }
 
   String _extractProveedorNombre(Map<String, dynamic> compra) {
     final proveedor = compra['proveedor'];
     if (proveedor is Map) {
-      return (proveedor['nombre_proveedor'] ?? '').toString();
+      return (proveedor['razon_social'] ?? '').toString();
     }
     return proveedor?.toString() ?? '';
   }
@@ -356,10 +318,10 @@ class _ComprasPageState extends State<ComprasPage> {
                   ),
                 ],
                 rows: _comprasFiltradas.map((compra) {
-                  final factura = compra['num_comprobante'] ?? '';
+                  final factura = compra['numeroDoc'] ?? '';
                   final proveedorNombre = _extractProveedorNombre(compra);
                   final fecha = compra['fecha_compra'] ?? '';
-                  final total = compra['total_compra'] ?? 0;
+                  final total = compra['total'] ?? 0;
 
                   return DataRow(
                     cells: [

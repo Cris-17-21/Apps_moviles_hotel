@@ -4,13 +4,33 @@ import 'package:hoteleria_erp/core/network/api_client.dart';
 class ReservaService {
   ReservaService._();
 
-  /// Obtiene la lista de todas las reservas.
+  /// Obtiene la lista de todas las reservas (full list, backward compatible).
   static Future<List<Map<String, dynamic>>> obtenerReservas() async {
     try {
       final response = await ApiClient.get('/cerro-verde/recepcion/reservas');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final Map<String, dynamic> body = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> data = body['content'] as List<dynamic>;
         return data.map((r) => r as Map<String, dynamic>).toList();
+      }
+      throw Exception('Error al obtener reservas: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Obtiene reservas con paginación server-side.
+  /// Retorna un Map con 'items', 'totalElements' y 'totalPages'.
+  static Future<Map<String, dynamic>> obtenerReservasPaginados({int page = 0, int size = 10}) async {
+    try {
+      final response = await ApiClient.get('/cerro-verde/recepcion/reservas?page=$page&size=$size');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'items': body['content'] as List<dynamic>,
+          'totalElements': body['totalElements'] as int,
+          'totalPages': body['totalPages'] as int,
+        };
       }
       throw Exception('Error al obtener reservas: ${response.statusCode}');
     } catch (e) {
@@ -80,7 +100,8 @@ class ReservaService {
     try {
       final response = await ApiClient.get('/cerro-verde/clientes');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final Map<String, dynamic> body = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> data = body['content'] as List<dynamic>;
         return data.map((c) => c as Map<String, dynamic>).toList();
       }
       throw Exception('Error al obtener clientes: ${response.statusCode}');

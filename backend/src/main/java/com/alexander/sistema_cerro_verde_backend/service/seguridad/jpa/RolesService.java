@@ -92,12 +92,36 @@ public Roles actualizarRol(Roles rol) {
 
     @Override
     public List<Permisos> obtenerPermisosPorRol(Integer idRol) {
-        throw new UnsupportedOperationException("Unimplemented method 'obtenerPermisosPorRol'");
+        Roles rol = rolesRepository.findById(idRol)
+            .orElseThrow(() -> new RuntimeException("Rol con ID " + idRol + " no encontrado"));
+        
+        return rol.getRolesPermisos().stream()
+            .map(RolesPermisos::getPermisos)
+            .toList();
     }
 
     @Override
     public Roles asignarPermisosARol(Integer idRol, List<Integer> idPermisos) {
-        throw new UnsupportedOperationException("Unimplemented method 'asignarPermisosARol'");
+        Roles rol = rolesRepository.findById(idRol)
+            .orElseThrow(() -> new RuntimeException("Rol con ID " + idRol + " no encontrado"));
+
+        // Eliminar permisos actuales
+        rolesPermisosRepo.deleteByRolId(idRol);
+
+        // Asignar nuevos permisos
+        Set<RolesPermisos> nuevosRolesPermisos = new HashSet<>();
+        for (Integer idPermiso : idPermisos) {
+            Permisos permiso = permisosRepository.findById(idPermiso)
+                .orElseThrow(() -> new RuntimeException("Permiso con ID " + idPermiso + " no encontrado"));
+
+            RolesPermisos rp = new RolesPermisos();
+            rp.setRoles(rol);
+            rp.setPermisos(permiso);
+            nuevosRolesPermisos.add(rp);
+        }
+
+        rol.setRolesPermisos(nuevosRolesPermisos);
+        return rolesRepository.save(rol);
     }
 
     @Override

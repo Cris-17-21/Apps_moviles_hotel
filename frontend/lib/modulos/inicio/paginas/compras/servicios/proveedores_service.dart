@@ -18,6 +18,25 @@ class ProveedoresService {
     }
   }
 
+  /// Fetches suppliers with server-side pagination.
+  /// Retorna un Map con 'items', 'totalElements' y 'totalPages'.
+  static Future<Map<String, dynamic>> obtenerProveedoresPaginados({int page = 0, int size = 10}) async {
+    try {
+      final response = await ApiClient.get('/cerro-verde/proveedores/all?page=$page&size=$size');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'items': body['content'] as List<dynamic>,
+          'totalElements': body['totalElements'] as int,
+          'totalPages': body['totalPages'] as int,
+        };
+      }
+      throw Exception('Error al obtener proveedores: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   /// Creates a new supplier.
   static Future<Map<String, dynamic>> crearProveedor(
       Map<String, dynamic> proveedorData) async {

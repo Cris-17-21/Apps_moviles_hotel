@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../general/tema/colores_tema.dart';
+import '../../../general/widgets/pagination_widget.dart';
 import '../servicios/mantenimiento_service.dart';
 import '../../recepcion/servicios/habitacion_service.dart';
+import '../../../core/utils/confirmacion.dart';
 
 class PaginaMantenimiento extends StatefulWidget {
   const PaginaMantenimiento({super.key});
@@ -22,43 +24,58 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
   bool _cargandoLimpiezas = true;
   bool _cargandoIncidencias = true;
 
+  // Paginación server-side (compartida entre tabs)
+  int _currentPage = 0;
+  int _totalPages = 0;
+  int _totalItems = 0;
+
   @override
   void initState() {
     super.initState();
     _cargarDatos();
   }
 
-  Future<void> _cargarDatos() async {
+  Future<void> _cargarDatos({int page = 0}) async {
     setState(() {
       _cargandoLimpiezas = true;
       _cargandoIncidencias = true;
     });
     try {
-      final limpiezasData = await MantenimientoService.obtenerLimpiezas();
+      final limpiezasResult = await MantenimientoService.obtenerLimpiezas(page: page);
       final personalData = await MantenimientoService.obtenerPersonalLimpieza();
-      final incidenciasData = await MantenimientoService.obtenerIncidencias();
+      final incidenciasResult = await MantenimientoService.obtenerIncidencias(page: page);
       final habsData = await HabitacionService.obtenerHabitaciones();
       final tiposIncData = await MantenimientoService.obtenerTiposIncidencia();
       final areasData = await MantenimientoService.obtenerAreasHotel();
 
+      if (!mounted) return;
+      final limpiezasItems = (limpiezasResult['items'] as List<dynamic>)
+          .map((l) => l as Map<String, dynamic>)
+          .toList();
+      final incidenciasItems = (incidenciasResult['items'] as List<dynamic>)
+          .map((i) => i as Map<String, dynamic>)
+          .toList();
+
       setState(() {
-        _limpiezas = limpiezasData;
+        _limpiezas = limpiezasItems;
         _personalLimpieza = personalData;
-        _incidencias = incidenciasData;
+        _incidencias = incidenciasItems;
         _habitaciones = habsData;
         _tiposIncidencia = tiposIncData;
         _areasHotel = areasData;
+        _currentPage = page;
+        _totalPages = limpiezasResult['totalPages'] as int;
+        _totalItems = limpiezasResult['totalElements'] as int;
         _cargandoLimpiezas = false;
         _cargandoIncidencias = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _cargandoLimpiezas = false;
         _cargandoIncidencias = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar datos: $e')),
-      );
+      mostrarError(context, 'Error al cargar datos: $e');
     }
   }
 
@@ -133,30 +150,46 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
         child: Text('No hay tareas de limpieza registradas', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
       );
     }
-    return ListView.separated(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(16),
-      itemCount: _limpiezas.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final l = _limpiezas[index];
-        final id = l['id_limpieza'] as int;
-        final roomNum = l['habitacion']?['numero']?.toString();
-        final salonName = l['salon']?['nombre']?.toString();
-        final targetStr = roomNum != null ? 'Habitación $roomNum' : (salonName ?? 'Área General');
-        final fecha = l['fecha_registro']?.toString().split('T')[0] ?? '';
-        final staffName = l['personalLimpieza']?['nombre']?.toString() ?? 'Sin asignar';
-        final estado = l['estado_limpieza']?.toString() ?? 'Pendiente';
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.separated(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: _limpiezas.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final l = _limpiezas[index];
+              final id = l['id_limpieza'] as int;
+              final roomNum = l['habitacion']?['numero']?.toString();
+              final salonName = l['salon']?['nombre']?.toString();
+              final targetStr = roomNum != null ? 'Habitación $roomNum' : (salonName ?? 'Área General');
+              final fecha = l['fecha_registro']?.toString().split('T')[0] ?? '';
+              final staffName = l['personalLimpieza']?['nombre']?.toString() ?? 'Sin asignar';
+              final estado = l['estado_limpieza']?.toString() ?? 'Pendiente';
 
-        return _buildTarjetaLimpieza(
-          id: id,
-          target: targetStr,
-          fecha: fecha,
-          staff: staffName,
-          estado: estado,
-          cleaningMap: l,
-        );
-      },
+              return _buildTarjetaLimpieza(
+                id: id,
+                target: targetStr,
+                fecha: fecha,
+                staff: staffName,
+                estado: estado,
+                cleaningMap: l,
+              );
+            },
+          ),
+        ),
+        if (_totalPages > 1)
+          Container(
+            color: HotelPMSColors.fondoTarjeta,
+            child: PaginationWidget(
+              currentPage: _currentPage,
+              totalPages: _totalPages,
+              totalItems: _totalItems,
+              onPageChanged: (page) => _cargarDatos(page: page),
+            ),
+          ),
+      ],
     );
   }
 
@@ -376,6 +409,12 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.naranjaAcento),
                   onPressed: () async {
+                    final confirmado = await confirmarEdicion(
+                      context,
+                      tipoRegistro: 'limpieza',
+                    );
+                    if (confirmado != true) return;
+
                     Navigator.pop(context);
                     final payload = Map<String, dynamic>.from(cleaningMap);
                     payload['estado_limpieza'] = estadoTemporal;
@@ -385,9 +424,7 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
                       await MantenimientoService.actualizarLimpieza(id, payload);
                       _cargarDatos();
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al actualizar: $e')),
-                      );
+                      mostrarError(context, 'Error al actualizar: $e');
                     }
                   },
                   child: const Text('Guardar', style: TextStyle(color: Colors.white)),
@@ -459,6 +496,16 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
                   },
                 ),
         ),
+        if (_totalPages > 1)
+          Container(
+            color: HotelPMSColors.fondoTarjeta,
+            child: PaginationWidget(
+              currentPage: _currentPage,
+              totalPages: _totalPages,
+              totalItems: _totalItems,
+              onPageChanged: (page) => _cargarDatos(page: page),
+            ),
+          ),
       ],
     );
   }
@@ -676,6 +723,12 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.naranjaAcento),
                   onPressed: () async {
+                    final confirmado = await confirmarEdicion(
+                      context,
+                      tipoRegistro: 'incidencia',
+                    );
+                    if (confirmado != true) return;
+
                     Navigator.pop(context);
                     final payload = Map<String, dynamic>.from(incidentMap);
                     payload['estado_incidencia'] = estadoTemporal;
@@ -685,9 +738,7 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
                       await MantenimientoService.actualizarIncidencia(id, payload);
                       _cargarDatos();
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al actualizar: $e')),
-                      );
+                      mostrarError(context, 'Error al actualizar: $e');
                     }
                   },
                   child: const Text('Guardar', style: TextStyle(color: Colors.white)),
@@ -872,11 +923,16 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
                   style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.naranjaAcento),
                   onPressed: () async {
                     if (txtDescripcion.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Por favor ingrese una descripción')),
-                      );
+                      mostrarError(context, 'Por favor ingrese una descripción');
                       return;
                     }
+
+                    final confirmado = await confirmarCreacion(
+                      context,
+                      tipoRegistro: 'incidencia',
+                      detalle: txtDescripcion.text.trim(),
+                    );
+                    if (confirmado != true) return;
 
                     final payload = <String, dynamic>{
                       'descripcion': txtDescripcion.text,
@@ -894,9 +950,7 @@ class _PaginaMantenimientoState extends State<PaginaMantenimiento> {
                       Navigator.pop(context);
                       _cargarDatos();
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al registrar incidencia: $e')),
-                      );
+                      mostrarErrorException(context, e);
                     }
                   },
                   child: const Text('Registrar', style: TextStyle(color: Colors.white)),

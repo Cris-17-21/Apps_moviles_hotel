@@ -4,13 +4,33 @@ import 'package:hoteleria_erp/core/network/api_client.dart';
 class ProductosService {
   ProductosService._();
 
-  /// Fetches all products from the backend.
+  /// Fetches all products from the backend (full list, backward compatible).
   static Future<List<Map<String, dynamic>>> obtenerProductos() async {
     try {
       final response = await ApiClient.get('/cerro-verde/productos');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final Map<String, dynamic> body = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> data = body['content'] as List<dynamic>;
         return data.map((p) => p as Map<String, dynamic>).toList();
+      }
+      throw Exception('Error al obtener productos: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Fetches products with server-side pagination.
+  /// Retorna un Map con 'items', 'totalElements' y 'totalPages'.
+  static Future<Map<String, dynamic>> obtenerProductosPaginados({int page = 0, int size = 10}) async {
+    try {
+      final response = await ApiClient.get('/cerro-verde/productos?page=$page&size=$size');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'items': body['content'] as List<dynamic>,
+          'totalElements': body['totalElements'] as int,
+          'totalPages': body['totalPages'] as int,
+        };
       }
       throw Exception('Error al obtener productos: ${response.statusCode}');
     } catch (e) {

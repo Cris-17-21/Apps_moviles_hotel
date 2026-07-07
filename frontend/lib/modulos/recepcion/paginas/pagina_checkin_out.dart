@@ -3,6 +3,7 @@ import '../../../general/tema/colores_tema.dart';
 import '../../../general/tema/estilos_texto.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../rutas/nombres_rutas.dart';
+import '../../../core/utils/confirmacion.dart';
 import '../servicios/check_service.dart';
 import '../servicios/reserva_service.dart';
 
@@ -51,9 +52,7 @@ class _PaginaCheckInOutState extends State<PaginaCheckInOut> {
       setState(() {
         _cargando = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar datos: $e')),
-      );
+      mostrarErrorException(context, e);
     }
   }
 
@@ -372,38 +371,22 @@ class _PaginaCheckInOutState extends State<PaginaCheckInOut> {
   }
 
   Future<void> _realizarCheckOut(int idCheck, Map<String, dynamic> checkMap) async {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text('Confirmar Check-out', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold)),
-        content: const Text('¿Está seguro de que desea registrar la salida del huésped?', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final payload = Map<String, dynamic>.from(checkMap);
-              payload['fecha_checkout'] = _formatearFecha(DateTime.now());
-
-              try {
-                await CheckService.realizarCheckOut(idCheck, payload);
-                _cargarDatos();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error al realizar Check-out: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.textoEliminar),
-            child: const Text('Registrar Salida'),
-          ),
-        ],
-      ),
+    final confirmado = await confirmarEdicion(
+      context,
+      tipoRegistro: 'check-out',
     );
+    if (!confirmado) return;
+
+    final payload = Map<String, dynamic>.from(checkMap);
+    payload['fecha_checkout'] = _formatearFecha(DateTime.now());
+
+    try {
+      await CheckService.realizarCheckOut(idCheck, payload);
+      _cargarDatos();
+      mostrarExito(context, 'Check-out registrado exitosamente.');
+    } catch (e) {
+      mostrarErrorException(context, e);
+    }
   }
 }
 
@@ -621,6 +604,12 @@ class _ModalNuevoCheckInState extends State<ModalNuevoCheckIn> {
                       onPressed: () async {
                         if (reservaSeleccionada == null) return;
 
+                        final confirmado = await confirmarCreacion(
+                          context,
+                          tipoRegistro: 'check-in',
+                        );
+                        if (!confirmado) return;
+
                         final payload = <String, dynamic>{
                           'fecha_checkin': _formatearFecha(DateTime.now()),
                           'fecha_checkout': null,
@@ -632,11 +621,10 @@ class _ModalNuevoCheckInState extends State<ModalNuevoCheckIn> {
                         try {
                           await CheckService.realizarCheckIn(payload);
                           widget.onSave();
+                          mostrarExito(context, 'Check-in registrado exitosamente.');
                           Navigator.pop(context);
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error al realizar Check-in: $e')),
-                          );
+                          mostrarErrorException(context, e);
                         }
                       },
                       style: ElevatedButton.styleFrom(

@@ -1,7 +1,10 @@
 package com.alexander.sistema_cerro_verde_backend.repository.caja;
 
+import java.util.Date;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +16,11 @@ import com.alexander.sistema_cerro_verde_backend.entity.ventas.Ventas;
 public interface TransaccionesCajaRepository extends JpaRepository<TransaccionesCaja, Integer> {
 
     List<TransaccionesCaja> findByCaja(Cajas caja);
+
+    Page<TransaccionesCaja> findByCaja(Cajas caja, Pageable pageable);
+
+    @Query("SELECT t FROM TransaccionesCaja t WHERE t.caja = :caja AND t.fechaHoraTransaccion >= :fechaApertura")
+    Page<TransaccionesCaja> findByCajaAndFechaAfter(@Param("caja") Cajas caja, @Param("fechaApertura") Date fechaApertura, Pageable pageable);
 
     @Query("SELECT t FROM TransaccionesCaja t WHERE t.venta.idVenta = :idVenta AND t.tipo.id = :tipoId")
     List<TransaccionesCaja> findByVentaIdAndTipoId(@Param("idVenta") Integer idVenta, @Param("tipoId") Integer tipoId);

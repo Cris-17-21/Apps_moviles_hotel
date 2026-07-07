@@ -5,6 +5,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -31,8 +34,8 @@ public class ReservaController {
     private ReservasService reservaService;
 
     @GetMapping("/reservas")
-    public List<Reservas> buscarTodos() {
-        return reservaService.buscarTodos();
+    public Page<Reservas> buscarTodos(@PageableDefault(size = 10, page = 0) Pageable pageable) {
+        return reservaService.buscarTodos(pageable);
     }
 
     @PostMapping("/reservas")

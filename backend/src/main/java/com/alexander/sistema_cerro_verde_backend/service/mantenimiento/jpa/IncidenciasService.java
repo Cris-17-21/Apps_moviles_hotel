@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.alexander.sistema_cerro_verde_backend.entity.mantenimiento.Incidencias;
@@ -17,9 +19,9 @@ public class IncidenciasService implements IIncidenciasService{
     @Autowired
     private IncidenciasRepository repoIncidencias;
 
-    @Override //buscar todos
-    public List<Incidencias> buscarTodos() {
-        return repoIncidencias.findAll();
+    @Override //buscar todos con paginación
+    public Page<Incidencias> buscarTodos(Pageable pageable) {
+        return repoIncidencias.findAll(pageable);
     }
 
     @Override //Buscar por id

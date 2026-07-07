@@ -8,13 +8,18 @@ class MantenimientoService {
   // LIMPIEZAS (CLEANING) ENDPOINTS
   // ==========================================
 
-  /// Obtiene la lista de todas las tareas de limpieza.
-  static Future<List<Map<String, dynamic>>> obtenerLimpiezas() async {
+  /// Obtiene tareas de limpieza con paginación server-side.
+  /// Retorna un Map con 'items', 'totalElements' y 'totalPages'.
+  static Future<Map<String, dynamic>> obtenerLimpiezas({int page = 0, int size = 10}) async {
     try {
-      final response = await ApiClient.get('/cerro-verde/limpiezas/ver');
+      final response = await ApiClient.get('/cerro-verde/limpiezas/ver?page=$page&size=$size');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((l) => l as Map<String, dynamic>).toList();
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'items': body['content'] as List<dynamic>,
+          'totalElements': body['totalElements'] as int,
+          'totalPages': body['totalPages'] as int,
+        };
       }
       throw Exception('Error al obtener limpiezas: ${response.statusCode}');
     } catch (e) {
@@ -126,13 +131,18 @@ class MantenimientoService {
   // INCIDENCIAS (INCIDENTS) ENDPOINTS
   // ==========================================
 
-  /// Obtiene la lista de todas las incidencias.
-  static Future<List<Map<String, dynamic>>> obtenerIncidencias() async {
+  /// Obtiene incidencias con paginación server-side.
+  /// Retorna un Map con 'items', 'totalElements' y 'totalPages'.
+  static Future<Map<String, dynamic>> obtenerIncidencias({int page = 0, int size = 10}) async {
     try {
-      final response = await ApiClient.get('/cerro-verde/incidencias/ver');
+      final response = await ApiClient.get('/cerro-verde/incidencias/ver?page=$page&size=$size');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((i) => i as Map<String, dynamic>).toList();
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'items': body['content'] as List<dynamic>,
+          'totalElements': body['totalElements'] as int,
+          'totalPages': body['totalPages'] as int,
+        };
       }
       throw Exception('Error al obtener incidencias: ${response.statusCode}');
     } catch (e) {
@@ -202,7 +212,8 @@ class MantenimientoService {
     try {
       final response = await ApiClient.get('/cerro-verde/areashotel/ver');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final Map<String, dynamic> body = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> data = body['content'] as List<dynamic>;
         return data.map((a) => a as Map<String, dynamic>).toList();
       }
       throw Exception('Error al obtener áreas del hotel: ${response.statusCode}');

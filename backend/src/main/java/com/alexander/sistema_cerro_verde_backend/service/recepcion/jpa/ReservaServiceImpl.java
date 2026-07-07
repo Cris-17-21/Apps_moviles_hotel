@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,18 +63,18 @@ public class ReservaServiceImpl implements ReservasService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Reservas> buscarTodos() {
-        List<Reservas> reservas = repository.findAll();
+    public Page<Reservas> buscarTodos(Pageable pageable) {
+        Page<Reservas> reservasPage = repository.findAll(pageable);
 
-        // Filtrar solo habitacionesXReserva activas
-        for (Reservas r : reservas) {
+        // Filtrar solo relaciones activas dentro de la página
+        for (Reservas r : reservasPage.getContent()) {
             List<HabitacionesXReserva> activas = r.getHabitacionesXReserva().stream()
                     .filter(hxr -> hxr.getEstado() == 1)
                     .toList();
             r.setHabitacionesXReserva(activas);
         }
 
-        return reservas;
+        return reservasPage;
     }
 
     @Override

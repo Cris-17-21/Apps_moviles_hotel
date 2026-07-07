@@ -77,6 +77,11 @@ public class UsuariosService implements IUsuariosService {
             throw new RuntimeException("Rol no encontrado");
         }
 
+        // Preservar contraseña existente si no se envió una nueva
+        if (usuario.getPassword() == null || usuario.getPassword().isEmpty()) {
+            usuario.setPassword(usuarioExistente.getPassword());
+        }
+
         usuario.setRol(rol);
         Usuarios usuarioGuardado = usuariosRepository.save(usuario);
 

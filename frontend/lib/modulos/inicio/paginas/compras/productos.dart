@@ -4,7 +4,9 @@ import '../../../../general/layout/layout_principal.dart';
 import '../../../../general/tema/colores_tema.dart';
 import '../../../../general/tema/estilos_texto.dart';
 import '../../../../rutas/nombres_rutas.dart';
+import '../../../../general/widgets/pagination_widget.dart';
 import 'servicios/productos_service.dart';
+import '../../../../core/utils/confirmacion.dart';
 
 class ProductosPage extends StatefulWidget {
   const ProductosPage({super.key});
@@ -19,6 +21,12 @@ class _ProductosPageState extends State<ProductosPage> {
   bool _isLoading = true;
   String? _errorMessage;
   final TextEditingController _searchController = TextEditingController();
+  String _filtroBusqueda = '';
+
+  // Paginación server-side
+  int _currentPage = 0;
+  int _totalPages = 0;
+  int _totalItems = 0;
 
   @override
   void initState() {
@@ -33,20 +41,28 @@ class _ProductosPageState extends State<ProductosPage> {
     super.dispose();
   }
 
-  Future<void> _cargarProductos() async {
+  Future<void> _cargarProductos({int page = 0}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final data = await ProductosService.obtenerProductos();
+      final result = await ProductosService.obtenerProductosPaginados(page: page);
+      if (!mounted) return;
+      final items = (result['items'] as List<dynamic>)
+          .map((p) => p as Map<String, dynamic>)
+          .toList();
       setState(() {
-        _productos = data;
-        _productosFiltrados = data;
+        _productos = items;
+        _currentPage = page;
+        _totalPages = result['totalPages'] as int;
+        _totalItems = result['totalElements'] as int;
         _isLoading = false;
       });
+      _aplicarFiltroLocal();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage =
             'No se pudieron cargar los productos. Verifique su conexión.';
@@ -56,17 +72,19 @@ class _ProductosPageState extends State<ProductosPage> {
   }
 
   void _filtrarProductos() {
-    final query = _searchController.text.toLowerCase();
+    _filtroBusqueda = _searchController.text.toLowerCase();
+    _aplicarFiltroLocal();
+  }
+
+  void _aplicarFiltroLocal() {
     setState(() {
-      if (query.isEmpty) {
-        _productosFiltrados = _productos;
+      if (_filtroBusqueda.isEmpty) {
+        _productosFiltrados = List.from(_productos);
       } else {
         _productosFiltrados = _productos.where((p) {
-          final nombre =
-              (p['nombre_producto'] ?? '').toString().toLowerCase();
-          final descripcion =
-              (p['descripcion_producto'] ?? '').toString().toLowerCase();
-          return nombre.contains(query) || descripcion.contains(query);
+          final nombre = (p['nombre'] ?? '').toString().toLowerCase();
+          final descripcion = (p['descripcion'] ?? '').toString().toLowerCase();
+          return nombre.contains(_filtroBusqueda) || descripcion.contains(_filtroBusqueda);
         }).toList();
       }
     });
@@ -80,35 +98,30 @@ class _ProductosPageState extends State<ProductosPage> {
 
     if (result == null) return;
 
+    final confirmado = await confirmarCreacion(
+      context,
+      tipoRegistro: 'producto',
+      detalle: '${result['nombre']} — S/ ${result['precio']}',
+    );
+    if (!confirmado) return;
+
     try {
       final precio = double.tryParse(result['precio'] ?? '0') ?? 0;
       final stock = int.tryParse(result['stock'] ?? '0') ?? 0;
 
       await ProductosService.crearProducto({
-        'nombre_producto': result['nombre'],
-        'descripcion_producto': result['descripcion'],
-        'precio': precio,
+        'nombre': result['nombre'],
+        'descripcion': result['descripcion'],
+        'precioVenta': precio,
         'stock': stock,
         'sucursal': {'id': 1},
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Producto creado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Producto creado exitosamente');
       _cargarProductos();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al crear producto: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al crear producto: ${e.toString()}');
     }
   }
 
@@ -117,14 +130,21 @@ class _ProductosPageState extends State<ProductosPage> {
       context: context,
       builder: (ctx) => _ProductoDialog(
         titulo: 'Editar Producto',
-        nombreInicial: producto['nombre_producto'] ?? '',
-        descripcionInicial: producto['descripcion_producto'] ?? '',
-        precioInicial: (producto['precio'] ?? 0).toString(),
+        nombreInicial: producto['nombre'] ?? '',
+        descripcionInicial: producto['descripcion'] ?? '',
+        precioInicial: (producto['precioVenta'] ?? 0).toString(),
         stockInicial: (producto['stock'] ?? 0).toString(),
       ),
     );
 
     if (result == null) return;
+
+    final confirmado = await confirmarEdicion(
+      context,
+      tipoRegistro: 'producto',
+      nombre: result['nombre'],
+    );
+    if (!confirmado) return;
 
     try {
       final precio = double.tryParse(result['precio'] ?? '0') ?? 0;
@@ -132,87 +152,37 @@ class _ProductosPageState extends State<ProductosPage> {
 
       await ProductosService.actualizarProducto({
         'id_producto': producto['id_producto'],
-        'nombre_producto': result['nombre'],
-        'descripcion_producto': result['descripcion'],
-        'precio': precio,
+        'nombre': result['nombre'],
+        'descripcion': result['descripcion'],
+        'precioVenta': precio,
         'stock': stock,
         'sucursal': {'id': 1},
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Producto actualizado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Producto actualizado exitosamente');
       _cargarProductos();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al actualizar producto: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al actualizar producto: ${e.toString()}');
     }
   }
 
   Future<void> _confirmarEliminacion(Map<String, dynamic> producto) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text(
-          'Confirmar eliminación',
-          style: TextStyle(color: HotelPMSColors.textoPrincipal),
-        ),
-        content: Text(
-          '¿Está seguro de eliminar el producto "${producto['nombre_producto']}"?',
-          style: const TextStyle(color: HotelPMSColors.textoSecundario),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: HotelPMSColors.textoSecundario),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: HotelPMSColors.textoEliminar),
-            ),
-          ),
-        ],
-      ),
+    final confirm = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'producto',
+      nombre: producto['nombre'],
     );
-
-    if (confirm != true) return;
+    if (!confirm) return;
 
     try {
       await ProductosService.eliminarProducto(producto['id_producto']);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Producto eliminado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Producto eliminado exitosamente');
       _cargarProductos();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al eliminar producto: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarErrorException(context, e);
     }
   }
 
@@ -295,6 +265,17 @@ class _ProductosPageState extends State<ProductosPage> {
             Expanded(
               child: _buildCuerpo(),
             ),
+            // Paginación server-side
+            if (_totalPages > 1)
+              Container(
+                color: HotelPMSColors.fondoTarjeta,
+                child: PaginationWidget(
+                  currentPage: _currentPage,
+                  totalPages: _totalPages,
+                  totalItems: _totalItems,
+                  onPageChanged: (page) => _cargarProductos(page: page),
+                ),
+              ),
           ],
         ),
       ),
@@ -353,8 +334,10 @@ class _ProductosPageState extends State<ProductosPage> {
       onRefresh: _cargarProductos,
       color: HotelPMSColors.naranjaAcento,
       child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
+        scrollDirection: Axis.vertical,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
           headingRowColor:
               WidgetStateProperty.all(HotelPMSColors.fondoOscuro),
           headingRowHeight: 48,
@@ -423,9 +406,9 @@ class _ProductosPageState extends State<ProductosPage> {
           ],
           rows: _productosFiltrados.map((producto) {
             final id = producto['id_producto'] ?? '';
-            final nombre = producto['nombre_producto'] ?? '';
-            final descripcion = producto['descripcion_producto'] ?? '';
-            final precio = producto['precio'] ?? 0;
+            final nombre = producto['nombre'] ?? '';
+            final descripcion = producto['descripcion'] ?? '';
+            final precio = producto['precioVenta'] ?? 0;
             final stock = producto['stock'] ?? 0;
 
             return DataRow(
@@ -500,9 +483,10 @@ class _ProductosPageState extends State<ProductosPage> {
               ],
             );
           }).toList(),
+            ),
+          ),
         ),
-      ),
-    );
+      );
   }
 }
 

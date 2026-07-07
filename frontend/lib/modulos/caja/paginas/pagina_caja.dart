@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../general/tema/colores_tema.dart';
 import '../../../rutas/nombres_rutas.dart';
+import '../../../general/widgets/pagination_widget.dart';
+import '../../../core/utils/confirmacion.dart';
 import '../servicios/caja_service.dart';
 
 class PaginaCaja extends StatefulWidget {
@@ -21,13 +23,18 @@ class _PaginaCajaState extends State<PaginaCaja> {
   double _totalContadoArqueo = 0.0;
   bool _arqueoRealizado = false;
 
+  // Paginación server-side
+  int _currentPage = 0;
+  int _totalPages = 0;
+  int _totalItems = 0;
+
   @override
   void initState() {
     super.initState();
     _cargarDatosCaja();
   }
 
-  Future<void> _cargarDatosCaja() async {
+  Future<void> _cargarDatosCaja({int page = 0}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -40,15 +47,21 @@ class _PaginaCajaState extends State<PaginaCaja> {
       });
 
       if (_isCajaAbierta) {
-        final txs = await CajaService.obtenerTransacciones();
+        final txsResult = await CajaService.obtenerTransacciones(page: page);
+        final items = (txsResult['items'] as List<dynamic>)
+            .map((t) => t as Map<String, dynamic>)
+            .toList();
+        // Ordenamos transacciones por ID descendente para ver las más recientes primero
+        items.sort((a, b) {
+          final idA = a['id'] ?? 0;
+          final idB = b['id'] ?? 0;
+          return idB.compareTo(idA);
+        });
         setState(() {
-          // Ordenamos transacciones por ID descendente para ver las más recientes primero
-          txs.sort((a, b) {
-            final idA = a['id'] ?? 0;
-            final idB = b['id'] ?? 0;
-            return idB.compareTo(idA);
-          });
-          _transacciones = txs;
+          _transacciones = items;
+          _currentPage = page;
+          _totalPages = txsResult['totalPages'] as int;
+          _totalItems = txsResult['totalElements'] as int;
         });
       }
       
@@ -56,6 +69,7 @@ class _PaginaCajaState extends State<PaginaCaja> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Error al cargar los datos de caja. Verifique la conexión con el servidor.';
         _isLoading = false;
@@ -107,18 +121,14 @@ class _PaginaCajaState extends State<PaginaCaja> {
       _totalContadoArqueo = 0.0;
       await _cargarDatosCaja();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Caja aperturada exitosamente.'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Caja aperturada exitosamente.');
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al aperturar caja: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -135,18 +145,14 @@ class _PaginaCajaState extends State<PaginaCaja> {
       });
       await _cargarDatosCaja();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Caja cerrada con éxito. Turno finalizado.'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Caja cerrada con éxito. Turno finalizado.');
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cerrar caja: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -164,18 +170,14 @@ class _PaginaCajaState extends State<PaginaCaja> {
       if (success) {
         await _cargarDatosCaja();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Transacción registrada exitosamente.'), backgroundColor: Colors.green),
-          );
+          mostrarExito(context, 'Transacción registrada exitosamente.');
         }
       } else {
         setState(() {
           _isLoading = false;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error al registrar transacción en el servidor.'), backgroundColor: Colors.red),
-          );
+          mostrarError(context, 'Error al registrar transacción en el servidor.');
         }
       }
     } catch (e) {
@@ -183,9 +185,7 @@ class _PaginaCajaState extends State<PaginaCaja> {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -346,10 +346,17 @@ class _PaginaCajaState extends State<PaginaCaja> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         if (formKey.currentState!.validate()) {
                           final val = double.parse(montoAperturaController.text);
-                          _abrirCaja(val);
+                          final confirmado = await confirmarCreacion(
+                            context,
+                            tipoRegistro: 'caja',
+                            detalle: 'Monto de apertura: S/ ${val.toStringAsFixed(2)}',
+                          );
+                          if (confirmado) {
+                            _abrirCaja(val);
+                          }
                         }
                       },
                       child: const Text(
@@ -574,6 +581,13 @@ class _PaginaCajaState extends State<PaginaCaja> {
                     },
                   ),
           ),
+          if (_totalPages > 1)
+            PaginationWidget(
+              currentPage: _currentPage,
+              totalPages: _totalPages,
+              totalItems: _totalItems,
+              onPageChanged: (page) => _cargarDatosCaja(page: page),
+            ),
           const SizedBox(height: 60),
         ],
       ),
@@ -706,13 +720,20 @@ class _PaginaCajaState extends State<PaginaCaja> {
                       width: double.infinity,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.naranjaAcento),
-                        onPressed: () {
+                        onPressed: () async {
                           if (modalFormKey.currentState!.validate()) {
                             double monto = double.parse(montoController.text);
                             int tipoId = tipoSeleccionado == 'Ingreso' ? 1 : 2;
-                            
-                            Navigator.pop(context);
-                            _registrarTransaccion(monto, descController.text, tipoId);
+
+                            final confirmado = await confirmarCreacion(
+                              context,
+                              tipoRegistro: 'transacción',
+                              detalle: '$tipoSeleccionado: S/ ${monto.toStringAsFixed(2)}',
+                            );
+                            if (confirmado) {
+                              Navigator.pop(context);
+                              _registrarTransaccion(monto, descController.text, tipoId);
+                            }
                           }
                         },
                         child: const Text('Guardar Transacción', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
@@ -729,20 +750,25 @@ class _PaginaCajaState extends State<PaginaCaja> {
     );
   }
 
-  void _mostrarArqueoModal(BuildContext context) {
-    final List<Map<String, dynamic>> denominaciones = [
-      {'valor': 200.0, 'tipo': 'Billete'},
-      {'valor': 100.0, 'tipo': 'Billete'},
-      {'valor': 50.0, 'tipo': 'Billete'},
-      {'valor': 20.0, 'tipo': 'Billete'},
-      {'valor': 10.0, 'tipo': 'Billete'},
-      {'valor': 5.0, 'tipo': 'Moneda'},
-      {'valor': 2.0, 'tipo': 'Moneda'},
-      {'valor': 1.0, 'tipo': 'Moneda'},
-      {'valor': 0.50, 'tipo': 'Moneda'},
-      {'valor': 0.20, 'tipo': 'Moneda'},
-      {'valor': 0.10, 'tipo': 'Moneda'},
-    ];
+  Future<void> _mostrarArqueoModal(BuildContext context) async {
+    List<Map<String, dynamic>> denominaciones;
+    try {
+      denominaciones = await CajaService.obtenerDenominaciones();
+    } catch (_) {
+      denominaciones = [
+        {'valor': 200.0, 'tipo': 'Billete'},
+        {'valor': 100.0, 'tipo': 'Billete'},
+        {'valor': 50.0, 'tipo': 'Billete'},
+        {'valor': 20.0, 'tipo': 'Billete'},
+        {'valor': 10.0, 'tipo': 'Billete'},
+        {'valor': 5.0, 'tipo': 'Moneda'},
+        {'valor': 2.0, 'tipo': 'Moneda'},
+        {'valor': 1.0, 'tipo': 'Moneda'},
+        {'valor': 0.50, 'tipo': 'Moneda'},
+        {'valor': 0.20, 'tipo': 'Moneda'},
+        {'valor': 0.10, 'tipo': 'Moneda'},
+      ];
+    }
 
     Map<double, int> cantidades = {for (var d in denominaciones) d['valor']: 0};
 
@@ -772,7 +798,7 @@ class _PaginaCajaState extends State<PaginaCaja> {
                       itemCount: denominaciones.length,
                       itemBuilder: (context, index) {
                         double val = denominaciones[index]['valor'];
-                        String tipo = denominaciones[index]['tipo'];
+                        String tipo = (denominaciones[index]['tipo'] is Map) ? denominaciones[index]['tipo']['nombre'] : denominaciones[index]['tipo'];
                         int cant = cantidades[val] ?? 0;
 
                         return Padding(
@@ -865,12 +891,35 @@ class _PaginaCajaState extends State<PaginaCaja> {
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.naranjaAcento),
-                          onPressed: () {
-                            setState(() {
-                              _totalContadoArqueo = totalContado;
-                              _arqueoRealizado = true;
-                            });
-                            Navigator.pop(context);
+                          onPressed: () async {
+                            final confirmado = await mostrarConfirmacion(
+                              context: context,
+                              titulo: 'Confirmar Arqueo',
+                              mensaje: 'Total contado: S/ ${totalContado.toStringAsFixed(2)}\n'
+                                  'Saldo sistema: S/ ${_saldoSistema.toStringAsFixed(2)}\n'
+                                  'Diferencia: S/ ${diferencia.toStringAsFixed(2)}',
+                              textoConfirmar: 'Guardar Arqueo',
+                              colorConfirmar: Colors.green,
+                            );
+                            if (!confirmado) return;
+
+                            final detalles = denominaciones
+                                .where((d) => (cantidades[d['valor']] ?? 0) > 0)
+                                .map((d) => {
+                              'cantidad': cantidades[d['valor']] ?? 0,
+                              'denominacion': {'id': d['id']},
+                            }).toList();
+
+                            try {
+                              await CajaService.guardarArqueo(detalles: detalles);
+                              setState(() {
+                                _totalContadoArqueo = totalContado;
+                                _arqueoRealizado = true;
+                              });
+                              if (context.mounted) Navigator.pop(context);
+                            } catch (e) {
+                              if (context.mounted) mostrarErrorException(context, e);
+                            }
                           },
                           child: const Text('Guardar Arqueo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
@@ -888,12 +937,7 @@ class _PaginaCajaState extends State<PaginaCaja> {
 
   void _mostrarCerrarCajaModal(BuildContext context) {
     if (!_arqueoRealizado) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Por favor, realice el Arqueo de Caja antes de proceder al cierre.'),
-          backgroundColor: Colors.amber,
-        ),
-      );
+      mostrarError(context, 'Por favor, realice el Arqueo de Caja antes de proceder al cierre.');
       return;
     }
 
@@ -961,9 +1005,16 @@ class _PaginaCajaState extends State<PaginaCaja> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _cerrarCaja(_totalContadoArqueo);
+                  onPressed: () async {
+                    final confirmado = await confirmarEdicion(
+                      context,
+                      tipoRegistro: 'caja',
+                      nombre: 'cierre de turno',
+                    );
+                    if (confirmado) {
+                      Navigator.pop(context);
+                      _cerrarCaja(_totalContadoArqueo);
+                    }
                   },
                   child: const Text('Confirmar y Cerrar Turno', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),

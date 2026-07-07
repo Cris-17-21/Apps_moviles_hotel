@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import com.alexander.sistema_cerro_verde_backend.entity.ventas.Ventas;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -37,6 +38,8 @@ public class Usuarios implements UserDetails {
     private boolean enable = true; 
     private String perfil;
     private String token;
+    @Column(name = "terminos_aceptados")
+    private boolean terminosAceptados = false;
 
     // Relación con Roles, ahora es una relación uno a muchos
     @ManyToOne(fetch = FetchType.EAGER)
@@ -80,6 +83,7 @@ public class Usuarios implements UserDetails {
         this.username = username;
     }
 
+    @JsonProperty("password")
     public void setPassword(String password) {
         this.password= password;
     }
@@ -161,6 +165,7 @@ public class Usuarios implements UserDetails {
     }
 
     @Override
+    @JsonIgnore
     public String getPassword() {
         return this.password;
     }
@@ -184,6 +189,14 @@ public class Usuarios implements UserDetails {
 
     public void setToken(String token) {
         this.token = token;
+    }
+
+    public boolean isTerminosAceptados() {
+        return terminosAceptados;
+    }
+
+    public void setTerminosAceptados(boolean terminosAceptados) {
+        this.terminosAceptados = terminosAceptados;
     }
 
 }

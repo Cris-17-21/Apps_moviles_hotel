@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../tema/colores_tema.dart';
 import 'opciones_menu.dart';
 import 'modelo_opciones_menu.dart';
+import '../../modulos/seguridad/servicios/auth_service.dart';
+import '../../rutas/nombres_rutas.dart';
 
 class MenuLateral extends StatelessWidget {
   final String rutaActual;
@@ -86,8 +88,11 @@ class MenuLateral extends StatelessWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.logout, color: HotelPMSColors.textoSecundario, size: 20),
-                  onPressed: () {
-                    // Acción logout
+                  onPressed: () async {
+                    await AuthService.logout();
+                    if (context.mounted) {
+                      Navigator.pushNamedAndRemoveUntil(context, NombresRutas.login, (_) => false);
+                    }
                   },
                 )
               ],

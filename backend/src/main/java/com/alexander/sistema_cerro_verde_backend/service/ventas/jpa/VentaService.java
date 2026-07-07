@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -88,8 +90,8 @@ public class VentaService implements IVentaService {
     }
 
     @Override
-    public List<Ventas> buscarTodos() {
-        return repoVenta.findAll();
+    public Page<Ventas> buscarTodos(Pageable pageable) {
+        return repoVenta.findAll(pageable);
     }
 
     @Override
@@ -189,7 +191,14 @@ public class VentaService implements IVentaService {
         venta.setTipoVenta("productos");
         venta.setEstadoVenta("Pendiente"); // Inicia pendiente hasta confirmación
 
-        // 1. Guardar la venta
+        // 0. Crear comprobante básico para que el PDF funcione inmediatamente
+        ComprobantePago comprobante = new ComprobantePago();
+        comprobante.setNumComprobante("B001"); // Default boleta
+        comprobante.setFechaEmision(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        comprobante.setVenta(venta); // owning side
+        venta.setComprobantePago(comprobante); // inverse side
+
+        // 1. Guardar la venta (cascade ALL persiste el comprobante)
         Ventas ventaGuardada = repoVenta.save(venta);
 
         // 2. Ajustar stock de productos

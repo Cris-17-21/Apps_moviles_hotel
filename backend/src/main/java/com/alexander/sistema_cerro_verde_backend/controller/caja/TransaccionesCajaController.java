@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -87,8 +90,18 @@ public class TransaccionesCajaController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<List<TransaccionesCaja>> obtenerTodos() {
-        return ResponseEntity.ok(transaccionesCajaService.buscarTodos());
+    public ResponseEntity<?> obtenerTodos(@PageableDefault(size = 10, page = 0) Pageable pageable) {
+        Usuarios usuario = getUsuarioAutenticado();
+        Optional<Cajas> cajaOpt = serviceCaja.buscarCajaPorUsuario(usuario);
+
+        if (cajaOpt.isEmpty() || cajaOpt.get().getFechaApertura() == null) {
+            return ResponseEntity.ok(Page.empty(pageable));
+        }
+
+        Cajas caja = cajaOpt.get();
+        Page<TransaccionesCaja> transacciones = transaccionesCajaService.buscarPorCajaDesdeFecha(
+            caja, caja.getFechaApertura(), pageable);
+        return ResponseEntity.ok(transacciones);
     }
 
     @GetMapping("/usuario")

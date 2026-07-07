@@ -8,8 +8,11 @@ class CajaService {
   static Future<Map<String, dynamic>> obtenerEstadoCaja() async {
     try {
       final response = await ApiClient.get('/cerro-verde/caja');
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      if (response.statusCode == 204) {
+        throw Exception('No tiene una caja asignada. Contacte al administrador.');
       }
       throw Exception('Error al obtener estado de caja: ${response.statusCode}');
     } catch (e) {
@@ -40,7 +43,9 @@ class CajaService {
     try {
       final response = await ApiClient.post(
         '/cerro-verde/caja/cerrar',
-        body: montoCierre,
+        body: {
+          'montoCierre': montoCierre,
+        },
       );
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -51,13 +56,18 @@ class CajaService {
     }
   }
 
-  /// Fetches cash register transactions.
-  static Future<List<Map<String, dynamic>>> obtenerTransacciones() async {
+  /// Fetches cash register transactions with server-side pagination.
+  /// Retorna un Map con 'items', 'totalElements' y 'totalPages'.
+  static Future<Map<String, dynamic>> obtenerTransacciones({int page = 0, int size = 10}) async {
     try {
-      final response = await ApiClient.get('/cerro-verde/caja/transacciones');
+      final response = await ApiClient.get('/cerro-verde/caja/transacciones/all?page=$page&size=$size');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((t) => t as Map<String, dynamic>).toList();
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'items': body['content'] as List<dynamic>,
+          'totalElements': body['totalElements'] as int,
+          'totalPages': body['totalPages'] as int,
+        };
       }
       throw Exception('Error al obtener transacciones: ${response.statusCode}');
     } catch (e) {
@@ -90,5 +100,33 @@ class CajaService {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Obtiene las denominaciones de billetes/monedas desde el backend.
+  static Future<List<Map<String, dynamic>>> obtenerDenominaciones() async {
+    final response = await ApiClient.get('/cerro-verde/caja/arqueo/denominaciones');
+    if (response.statusCode == 200) {
+      return (jsonDecode(response.body) as List<dynamic>).cast<Map<String, dynamic>>();
+    }
+    throw Exception('Error al obtener denominaciones: ${response.statusCode}');
+  }
+
+  /// Guarda un arqueo en el backend.
+  /// [detalles] es una lista de Map con 'cantidad' y 'denominacion' (con 'id').
+  static Future<Map<String, dynamic>> guardarArqueo({
+    required List<Map<String, dynamic>> detalles,
+    String? observaciones,
+  }) async {
+    final response = await ApiClient.post(
+      '/cerro-verde/caja/arqueo/crear',
+      body: {
+        'detalles': detalles,
+        if (observaciones != null) 'observaciones': observaciones,
+      },
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Error al guardar arqueo: ${response.statusCode}');
   }
 }

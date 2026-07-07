@@ -1,6 +1,7 @@
 package com.alexander.sistema_cerro_verde_backend.controller.caja;
 
 import java.util.Date;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -148,7 +149,7 @@ public class CajaController {
     
 
     @PostMapping("/cerrar")
-    public ResponseEntity<?> cerrarCajaActual(@RequestBody Double montoCierre) {
+    public ResponseEntity<?> cerrarCajaActual(@RequestBody Map<String, Object> body) {
         Usuarios usuario = getUsuarioAutenticado();
         Optional<Cajas> cajaAbierta = serviceCaja.buscarCajaAperturadaPorUsuario(usuario);
     
@@ -157,6 +158,12 @@ public class CajaController {
         }
     
         Cajas caja = cajaAbierta.get();
+    
+        Object montoObj = body.get("montoCierre");
+        if (montoObj == null) {
+            return ResponseEntity.badRequest().body("El campo 'montoCierre' es requerido.");
+        }
+        Double montoCierre = ((Number) montoObj).doubleValue();
     
         TransaccionesCaja transaccion = new TransaccionesCaja();
         transaccion.setCaja(caja);
@@ -167,8 +174,8 @@ public class CajaController {
 
         transaccionesCajaService.guardar(transaccion);
 
-        caja.setMontoCierre(caja.getSaldoTotal());
-        caja.setSaldoFisico(montoCierre); // ⬅️ ESTO ES CLAVE
+        caja.setMontoCierre(montoCierre);
+        caja.setSaldoFisico(montoCierre);
         caja.setFechaCierre(new Date());
         caja.setEstadoCaja("cerrada");
         caja.setUsuarioCierre(usuario);

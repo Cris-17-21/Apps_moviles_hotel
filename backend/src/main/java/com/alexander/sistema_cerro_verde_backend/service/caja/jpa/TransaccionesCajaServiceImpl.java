@@ -1,9 +1,12 @@
 package com.alexander.sistema_cerro_verde_backend.service.caja.jpa;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -42,8 +45,8 @@ public class TransaccionesCajaServiceImpl implements TransaccionesCajaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TransaccionesCaja> buscarTodos() {
-        return repository.findAll();
+    public Page<TransaccionesCaja> buscarTodos(Pageable pageable) {
+        return repository.findAll(pageable);
     }
 
     @Override
@@ -75,6 +78,18 @@ public class TransaccionesCajaServiceImpl implements TransaccionesCajaService {
     @Transactional(readOnly = true)
     public List<TransaccionesCaja> buscarPorCaja(Cajas caja) {
         return repository.findByCaja(caja);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TransaccionesCaja> buscarPorCaja(Cajas caja, Pageable pageable) {
+        return repository.findByCaja(caja, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<TransaccionesCaja> buscarPorCajaDesdeFecha(Cajas caja, Date fechaApertura, Pageable pageable) {
+        return repository.findByCajaAndFechaAfter(caja, fechaApertura, pageable);
     }
 
     @Override

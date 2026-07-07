@@ -111,8 +111,7 @@ public class ComprasService implements IComprasService {
 
     @Override
     public String obtenerProximoCorrelativo() {
-        String ultimoCorrelativo = repoCompras.obtenerUltimaCompra()
-                .map(Compras::getCorrelativo)
+        String ultimoCorrelativo = repoCompras.obtenerUltimoCorrelativo()
                 .orElse("00000000");  // Si no hay registros
 
         // Convertir a número, sumar 1

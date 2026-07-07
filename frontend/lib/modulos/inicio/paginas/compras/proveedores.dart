@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../general/layout/layout_principal.dart';
 import '../../../../general/tema/colores_tema.dart';
 import '../../../../general/tema/estilos_texto.dart';
+import '../../../../general/widgets/pagination_widget.dart';
 import '../../../../rutas/nombres_rutas.dart';
+import '../../../../core/utils/confirmacion.dart';
 import 'servicios/proveedores_service.dart';
 
 class ProveedoresPage extends StatefulWidget {
@@ -19,6 +21,12 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
   bool _isLoading = true;
   String? _errorMessage;
   final TextEditingController _searchController = TextEditingController();
+  String _filtroBusqueda = '';
+
+  // Paginación server-side
+  int _currentPage = 0;
+  int _totalPages = 0;
+  int _totalItems = 0;
 
   @override
   void initState() {
@@ -33,20 +41,29 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
     super.dispose();
   }
 
-  Future<void> _cargarProveedores() async {
+  Future<void> _cargarProveedores({int page = 0}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final data = await ProveedoresService.obtenerProveedores();
+      final result =
+          await ProveedoresService.obtenerProveedoresPaginados(page: page);
+      if (!mounted) return;
+      final items = (result['items'] as List<dynamic>)
+          .map((p) => p as Map<String, dynamic>)
+          .toList();
       setState(() {
-        _proveedores = data;
-        _proveedoresFiltrados = data;
+        _proveedores = items;
+        _currentPage = page;
+        _totalPages = result['totalPages'] as int;
+        _totalItems = result['totalElements'] as int;
         _isLoading = false;
       });
+      _aplicarFiltroLocal();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage =
             'No se pudieron cargar los proveedores. Verifique su conexión.';
@@ -56,20 +73,22 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
   }
 
   void _filtrarProveedores() {
-    final query = _searchController.text.toLowerCase();
+    _filtroBusqueda = _searchController.text.toLowerCase();
+    _aplicarFiltroLocal();
+  }
+
+  void _aplicarFiltroLocal() {
     setState(() {
-      if (query.isEmpty) {
-        _proveedoresFiltrados = _proveedores;
+      if (_filtroBusqueda.isEmpty) {
+        _proveedoresFiltrados = List.from(_proveedores);
       } else {
         _proveedoresFiltrados = _proveedores.where((p) {
-          final nombre =
-              (p['nombre_proveedor'] ?? '').toString().toLowerCase();
-          final ruc = (p['ruc_proveedor'] ?? '').toString().toLowerCase();
           final razonSocial =
               (p['razon_social'] ?? '').toString().toLowerCase();
-          return nombre.contains(query) ||
-              ruc.contains(query) ||
-              razonSocial.contains(query);
+          final ruc =
+              (p['ruc_proveedor'] ?? '').toString().toLowerCase();
+          return razonSocial.contains(_filtroBusqueda) ||
+              ruc.contains(_filtroBusqueda);
         }).toList();
       }
     });
@@ -83,32 +102,26 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
 
     if (result == null) return;
 
+    final confirmado = await confirmarCreacion(
+      context,
+      tipoRegistro: 'proveedor',
+      detalle: '${result['razonSocial']} — RUC: ${result['ruc']}',
+    );
+    if (!confirmado) return;
+
     try {
       await ProveedoresService.crearProveedor({
         'ruc_proveedor': result['ruc'],
-        'nombre_proveedor': result['nombre'],
         'razon_social': result['razonSocial'],
-        'direccion_proveedor': result['direccion'],
+        'direccion': result['direccion'],
         'sucursal': {'id': 1},
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Proveedor creado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Proveedor creado exitosamente');
       _cargarProveedores();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al crear proveedor: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al crear proveedor: ${e.toString()}');
     }
   }
 
@@ -118,98 +131,53 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
       builder: (ctx) => _ProveedorDialog(
         titulo: 'Editar Proveedor',
         rucInicial: proveedor['ruc_proveedor'] ?? '',
-        nombreInicial: proveedor['nombre_proveedor'] ?? '',
         razonSocialInicial: proveedor['razon_social'] ?? '',
-        direccionInicial: proveedor['direccion_proveedor'] ?? '',
+        direccionInicial: proveedor['direccion'] ?? '',
       ),
     );
 
     if (result == null) return;
 
+    final confirmado = await confirmarEdicion(
+      context,
+      tipoRegistro: 'proveedor',
+      nombre: result['razonSocial'],
+    );
+    if (!confirmado) return;
+
     try {
       await ProveedoresService.actualizarProveedor({
         'ruc_proveedor': result['ruc'],
-        'nombre_proveedor': result['nombre'],
         'razon_social': result['razonSocial'],
-        'direccion_proveedor': result['direccion'],
+        'direccion': result['direccion'],
         'sucursal': {'id': 1},
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Proveedor actualizado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Proveedor actualizado exitosamente');
       _cargarProveedores();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al actualizar proveedor: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al actualizar proveedor: ${e.toString()}');
     }
   }
 
   Future<void> _confirmarEliminacion(Map<String, dynamic> proveedor) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text(
-          'Confirmar eliminación',
-          style: TextStyle(color: HotelPMSColors.textoPrincipal),
-        ),
-        content: Text(
-          '¿Está seguro de eliminar al proveedor "${proveedor['nombre_proveedor']}"?',
-          style: const TextStyle(color: HotelPMSColors.textoSecundario),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: HotelPMSColors.textoSecundario),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: HotelPMSColors.textoEliminar),
-            ),
-          ),
-        ],
-      ),
+    final confirm = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'proveedor',
+      nombre: proveedor['razon_social'],
     );
-
-    if (confirm != true) return;
+    if (!confirm) return;
 
     try {
       await ProveedoresService.eliminarProveedor(
           proveedor['ruc_proveedor'] ?? '');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Proveedor eliminado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Proveedor eliminado exitosamente');
       _cargarProveedores();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al eliminar proveedor: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al eliminar proveedor: ${e.toString()}');
     }
   }
 
@@ -292,6 +260,18 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
             Expanded(
               child: _buildCuerpo(),
             ),
+
+            // Paginación server-side
+            if (_totalPages > 1)
+              Container(
+                color: HotelPMSColors.fondoTarjeta,
+                child: PaginationWidget(
+                  currentPage: _currentPage,
+                  totalPages: _totalPages,
+                  totalItems: _totalItems,
+                  onPageChanged: (page) => _cargarProveedores(page: page),
+                ),
+              ),
           ],
         ),
       ),
@@ -369,16 +349,6 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
             ),
             DataColumn(
               label: Text(
-                'NOMBRE',
-                style: TextStyle(
-                  color: HotelPMSColors.textoPrincipal,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            DataColumn(
-              label: Text(
                 'RAZÓN SOCIAL',
                 style: TextStyle(
                   color: HotelPMSColors.textoPrincipal,
@@ -410,9 +380,8 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
           ],
           rows: _proveedoresFiltrados.map((proveedor) {
             final ruc = proveedor['ruc_proveedor'] ?? '';
-            final nombre = proveedor['nombre_proveedor'] ?? '';
             final razonSocial = proveedor['razon_social'] ?? '';
-            final direccion = proveedor['direccion_proveedor'] ?? '';
+            final direccion = proveedor['direccion'] ?? '';
 
             return DataRow(
               cells: [
@@ -427,18 +396,10 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
                 ),
                 DataCell(
                   Text(
-                    nombre,
-                    style: const TextStyle(
-                      color: HotelPMSColors.textoPrincipal,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                DataCell(
-                  Text(
                     razonSocial,
                     style: const TextStyle(
                       color: HotelPMSColors.textoPrincipal,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -487,14 +448,12 @@ class _ProveedoresPageState extends State<ProveedoresPage> {
 class _ProveedorDialog extends StatefulWidget {
   final String titulo;
   final String? rucInicial;
-  final String? nombreInicial;
   final String? razonSocialInicial;
   final String? direccionInicial;
 
   const _ProveedorDialog({
     required this.titulo,
     this.rucInicial,
-    this.nombreInicial,
     this.razonSocialInicial,
     this.direccionInicial,
   });
@@ -505,7 +464,6 @@ class _ProveedorDialog extends StatefulWidget {
 
 class _ProveedorDialogState extends State<_ProveedorDialog> {
   late final TextEditingController _rucController;
-  late final TextEditingController _nombreController;
   late final TextEditingController _razonSocialController;
   late final TextEditingController _direccionController;
   final _formKey = GlobalKey<FormState>();
@@ -514,7 +472,6 @@ class _ProveedorDialogState extends State<_ProveedorDialog> {
   void initState() {
     super.initState();
     _rucController = TextEditingController(text: widget.rucInicial ?? '');
-    _nombreController = TextEditingController(text: widget.nombreInicial ?? '');
     _razonSocialController =
         TextEditingController(text: widget.razonSocialInicial ?? '');
     _direccionController =
@@ -524,7 +481,6 @@ class _ProveedorDialogState extends State<_ProveedorDialog> {
   @override
   void dispose() {
     _rucController.dispose();
-    _nombreController.dispose();
     _razonSocialController.dispose();
     _direccionController.dispose();
     super.dispose();
@@ -567,23 +523,6 @@ class _ProveedorDialogState extends State<_ProveedorDialog> {
                 ),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'El RUC es obligatorio' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _nombreController,
-                style: const TextStyle(color: HotelPMSColors.textoPrincipal),
-                decoration: InputDecoration(
-                  labelText: 'Nombre del proveedor',
-                  labelStyle: HotelPMSTextStyles.subtituloGris,
-                  filled: true,
-                  fillColor: HotelPMSColors.fondoInput,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'El nombre es obligatorio' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -633,7 +572,6 @@ class _ProveedorDialogState extends State<_ProveedorDialog> {
             if (_formKey.currentState!.validate()) {
               Navigator.pop(context, {
                 'ruc': _rucController.text.trim(),
-                'nombre': _nombreController.text.trim(),
                 'razonSocial': _razonSocialController.text.trim(),
                 'direccion': _direccionController.text.trim(),
               });

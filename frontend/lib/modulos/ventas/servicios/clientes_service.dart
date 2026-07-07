@@ -4,12 +4,18 @@ import '../../../core/network/api_client.dart';
 class ClientesService {
   ClientesService._();
 
-  static Future<List<Map<String, dynamic>>> obtenerClientes() async {
+  /// Obtiene clientes con paginación server-side.
+  /// Retorna un Map con 'items', 'totalElements' y 'totalPages'.
+  static Future<Map<String, dynamic>> obtenerClientes({int page = 0, int size = 10}) async {
     try {
-      final response = await ApiClient.get('/cerro-verde/clientes');
+      final response = await ApiClient.get('/cerro-verde/clientes?page=$page&size=$size');
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((c) => c as Map<String, dynamic>).toList();
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        return {
+          'items': body['content'] as List<dynamic>,
+          'totalElements': body['totalElements'] as int,
+          'totalPages': body['totalPages'] as int,
+        };
       }
       throw Exception('Error al obtener clientes: ${response.statusCode}');
     } catch (e) {

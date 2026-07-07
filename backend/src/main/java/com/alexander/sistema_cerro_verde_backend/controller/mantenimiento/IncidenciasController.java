@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,9 +33,9 @@ public class IncidenciasController {
     @Autowired
     private SmsService mensajeService;
     
-    @GetMapping("/ver") //Ver
-    public List<Incidencias> buscarTodos() {
-        return serviceIncidencias.buscarTodos();
+    @GetMapping("/ver") //Ver con paginación
+    public Page<Incidencias> buscarTodos(@PageableDefault(size = 10, page = 0) Pageable pageable) {
+        return serviceIncidencias.buscarTodos(pageable);
     }
 
     @GetMapping("/incidencias/{id}") //Ver por Id

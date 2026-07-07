@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,6 +38,11 @@ public class ProveedoresController {
     @GetMapping("/proveedores")
     public List<Proveedores> buscarTodos() { //Listar todos los proveedores
         return serviceProveedores.buscarTodos(); 
+    }
+
+    @GetMapping("/proveedores/all")
+    public Page<Proveedores> buscarTodosPaginados(@PageableDefault(size = 10, page = 0) Pageable pageable) {
+        return serviceProveedores.buscarTodos(pageable);
     }
 
     @PostMapping("/proveedores")

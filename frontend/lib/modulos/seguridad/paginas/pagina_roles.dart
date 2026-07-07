@@ -4,6 +4,7 @@ import '../../../general/tema/estilos_texto.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../rutas/nombres_rutas.dart';
 import '../servicios/rol_service.dart';
+import '../../../core/utils/confirmacion.dart';
 
 class PaginaRoles extends StatefulWidget {
   const PaginaRoles({super.key});
@@ -76,6 +77,13 @@ class _PaginaRolesState extends State<PaginaRoles> {
 
     if (result == null) return;
 
+    final confirmado = await confirmarCreacion(
+      context,
+      tipoRegistro: 'rol',
+      detalle: result['nombre'],
+    );
+    if (!confirmado) return;
+
     try {
       await RolService.crearRol({
         'nombreRol': result['nombre'],
@@ -83,23 +91,11 @@ class _PaginaRolesState extends State<PaginaRoles> {
         'sucursal': {'id': 1},
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Rol creado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Rol creado exitosamente');
       _cargarRoles();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al crear rol: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarErrorException(context, e);
     }
   }
 
@@ -115,6 +111,13 @@ class _PaginaRolesState extends State<PaginaRoles> {
 
     if (result == null) return;
 
+    final confirmado = await confirmarEdicion(
+      context,
+      tipoRegistro: 'rol',
+      nombre: result['nombre'],
+    );
+    if (!confirmado) return;
+
     try {
       await RolService.actualizarRol({
         'id': rol['id'],
@@ -123,80 +126,30 @@ class _PaginaRolesState extends State<PaginaRoles> {
         'sucursal': {'id': 1},
       });
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Rol actualizado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Rol actualizado exitosamente');
       _cargarRoles();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al actualizar rol: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarErrorException(context, e);
     }
   }
 
   Future<void> _confirmarEliminacion(Map<String, dynamic> rol) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text(
-          'Confirmar eliminación',
-          style: TextStyle(color: HotelPMSColors.textoPrincipal),
-        ),
-        content: Text(
-          '¿Está seguro de eliminar el rol "${rol['nombreRol']}"?',
-          style: const TextStyle(color: HotelPMSColors.textoSecundario),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: HotelPMSColors.textoSecundario),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Eliminar',
-              style: TextStyle(color: HotelPMSColors.textoEliminar),
-            ),
-          ),
-        ],
-      ),
+    final confirmado = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'rol',
+      nombre: rol['nombreRol'],
     );
-
-    if (confirm != true) return;
+    if (!confirmado) return;
 
     try {
       await RolService.eliminarRol(rol['id']);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Rol eliminado exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Rol eliminado exitosamente');
       _cargarRoles();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al eliminar rol: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarErrorException(context, e);
     }
   }
 

@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.alexander.sistema_cerro_verde_backend.entity.ventas.Clientes;
@@ -21,13 +23,18 @@ public class ClientesServiceImpl implements ClientesService{
     private ReservasRepository repoReservas;
 
     @Override
-    public List<Clientes> buscarTodos() {
-        return repoClientes.findAll();
+    public Page<Clientes> buscarTodos(Pageable pageable) {
+        return repoClientes.findAll(pageable);
     }
 
     @Override
     public Optional<Clientes> buscarPorId(Integer id){
         return repoClientes.findById(id);
+    }
+
+    @Override
+    public Optional<Clientes> buscarPorDniRuc(String dniRuc) {
+        return repoClientes.findByDniRuc(dniRuc);
     }
 
     @Override

@@ -4,6 +4,7 @@ import 'package:hoteleria_erp/modulos/recepcion/paginas/pagina_checkin_out.dart'
 import 'package:hoteleria_erp/modulos/recepcion/paginas/pagina_habitaciones.dart';
 import 'package:hoteleria_erp/modulos/recepcion/paginas/pagina_reservas.dart';
 import 'package:hoteleria_erp/modulos/seguridad/paginas/pagina_login.dart';
+import 'package:hoteleria_erp/modulos/seguridad/paginas/pagina_permisos.dart';
 import 'package:hoteleria_erp/modulos/seguridad/paginas/pagina_roles.dart';
 import 'package:hoteleria_erp/modulos/seguridad/paginas/pagina_usuarios.dart';
 import 'package:hoteleria_erp/modulos/ventas/paginas/pagina_clientes.dart';
@@ -42,6 +43,7 @@ class MyApp extends StatelessWidget {
             const PaginaInicio(), // Constante aquí
         NombresRutas.usuarios: (context) => const PaginaUsuarios(),
         NombresRutas.roles: (context) => const PaginaRoles(),
+        NombresRutas.permisos: (context) => const PaginaPermisos(),
         NombresRutas.habitaciones: (context) => const PaginaHabitaciones(),
         NombresRutas.reservas: (context) => const PaginaReservas(),
         NombresRutas.checkInOut: (context) => const PaginaCheckInOut(),

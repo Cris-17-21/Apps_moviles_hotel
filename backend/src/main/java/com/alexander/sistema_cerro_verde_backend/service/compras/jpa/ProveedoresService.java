@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.alexander.sistema_cerro_verde_backend.entity.compras.Proveedores;
@@ -19,6 +21,11 @@ public class ProveedoresService implements IProveedoresService {
     @Override
     public List<Proveedores> buscarTodos() { //Buscar todos los proveedores
         return repoProveedores.findAll();
+    }
+
+    @Override
+    public Page<Proveedores> buscarTodos(Pageable pageable) {
+        return repoProveedores.findAll(pageable);
     }
 
     @Override

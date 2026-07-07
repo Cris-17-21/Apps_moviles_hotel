@@ -23,6 +23,11 @@ const List<ModeloOpcionesMenu> opcionesDelMenu = [
         titulo: 'Roles',
         ruta: NombresRutas.roles,
       ),
+      ModeloOpcionesMenu(
+        icono: Icons.admin_panel_settings_outlined,
+        titulo: 'Permisos',
+        ruta: NombresRutas.permisos,
+      ),
     ],
   ),
   ModeloOpcionesMenu(

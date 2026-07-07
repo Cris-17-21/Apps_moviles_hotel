@@ -3,6 +3,8 @@ import '../../../general/tema/colores_tema.dart';
 import '../../../general/tema/estilos_texto.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../rutas/nombres_rutas.dart';
+import '../../../general/widgets/pagination_widget.dart';
+import '../../../core/utils/confirmacion.dart';
 import '../servicios/reserva_service.dart';
 import '../servicios/habitacion_service.dart';
 
@@ -22,6 +24,11 @@ class _PaginaReservasState extends State<PaginaReservas> {
   String _filtroBusqueda = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // Paginación server-side
+  int _currentPage = 0;
+  int _totalPages = 0;
+  int _totalItems = 0;
+
   @override
   void initState() {
     super.initState();
@@ -34,29 +41,35 @@ class _PaginaReservasState extends State<PaginaReservas> {
     super.dispose();
   }
 
-  Future<void> _cargarDatos() async {
+  Future<void> _cargarDatos({int page = 0}) async {
     setState(() {
       _cargando = true;
     });
     try {
-      final resData = await ReservaService.obtenerReservas();
+      final resResult = await ReservaService.obtenerReservasPaginados(page: page);
       final clientsData = await ReservaService.obtenerClientes();
       final sucursalesData = await HabitacionService.obtenerSucursales();
       final habsData = await HabitacionService.obtenerHabitaciones();
+      if (!mounted) return;
+      final items = (resResult['items'] as List<dynamic>)
+          .map((r) => r as Map<String, dynamic>)
+          .toList();
       setState(() {
-        _reservas = resData;
+        _reservas = items;
+        _currentPage = page;
+        _totalPages = resResult['totalPages'] as int;
+        _totalItems = resResult['totalElements'] as int;
         _clientes = clientsData;
         _sucursales = sucursalesData;
         _habitaciones = habsData;
         _cargando = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _cargando = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar datos: $e')),
-      );
+      mostrarErrorException(context, e);
     }
   }
 
@@ -185,59 +198,73 @@ class _PaginaReservasState extends State<PaginaReservas> {
                             style: TextStyle(color: HotelPMSColors.textoPrincipal),
                           ),
                         )
-                      : ListView.builder(
-                          itemCount: _reservasFiltradas.length,
-                          itemBuilder: (context, index) {
-                            final r = _reservasFiltradas[index];
-                            final idReserva = r['id_reserva'] as int;
-                            final nombre = r['cliente']?['nombre']?.toString() ?? 'Sin Nombre';
-                            final estado = r['estado_reserva']?.toString() ?? 'Pendiente';
-                            final checkIn = r['fecha_inicio']?.toString().split('T')[0] ?? '';
-                            final checkOut = r['fecha_fin']?.toString().split('T')[0] ?? '';
+                      : Column(
+                          children: [
+                            Expanded(
+                              child: ListView.builder(
+                                itemCount: _reservasFiltradas.length,
+                                itemBuilder: (context, index) {
+                                  final r = _reservasFiltradas[index];
+                                  final idReserva = r['id_reserva'] as int;
+                                  final nombre = r['cliente']?['nombre']?.toString() ?? 'Sin Nombre';
+                                  final estado = r['estado_reserva']?.toString() ?? 'Pendiente';
+                                  final checkIn = r['fecha_inicio']?.toString().split('T')[0] ?? '';
+                                  final checkOut = r['fecha_fin']?.toString().split('T')[0] ?? '';
 
-                            final List<dynamic> habsXReserva = r['habitacionesXReserva'] as List<dynamic>? ?? [];
-                            final habs = habsXReserva
-                                .map((hr) => hr['habitacion']?['numero']?.toString() ?? '')
-                                .where((num) => num.isNotEmpty)
-                                .join(', ');
+                                  final List<dynamic> habsXReserva = r['habitacionesXReserva'] as List<dynamic>? ?? [];
+                                  final habs = habsXReserva
+                                      .map((hr) => hr['habitacion']?['numero']?.toString() ?? '')
+                                      .where((num) => num.isNotEmpty)
+                                      .join(', ');
 
-                            final nroPersona = r['nro_persona']?.toString() ?? '0';
+                                  final nroPersona = r['nro_persona']?.toString() ?? '0';
 
-                            double totalAcumulado = 0.0;
-                            for (var hr in habsXReserva) {
-                              totalAcumulado += (hr['precio_reserva'] as num?)?.toDouble() ?? 0.0;
-                            }
-                            final total = 'S/ ${totalAcumulado.toStringAsFixed(2)}';
+                                  double totalAcumulado = 0.0;
+                                  for (var hr in habsXReserva) {
+                                    totalAcumulado += (hr['precio_reserva'] as num?)?.toDouble() ?? 0.0;
+                                  }
+                                  final total = 'S/ ${totalAcumulado.toStringAsFixed(2)}';
 
-                            Color colorEstado = HotelPMSColors.textoPrincipal;
-                            if (estado.toLowerCase() == 'check-in') {
-                              colorEstado = HotelPMSColors.naranjaAcento;
-                            } else if (estado.toLowerCase() == 'pagada') {
-                              colorEstado = HotelPMSColors.azulAcento;
-                            } else if (estado.toLowerCase() == 'cancelada') {
-                              colorEstado = HotelPMSColors.textoEliminar;
-                            } else {
-                              colorEstado = HotelPMSColors.textoSecundario;
-                            }
+                                  Color colorEstado = HotelPMSColors.textoPrincipal;
+                                  if (estado.toLowerCase() == 'check-in') {
+                                    colorEstado = HotelPMSColors.naranjaAcento;
+                                  } else if (estado.toLowerCase() == 'pagada') {
+                                    colorEstado = HotelPMSColors.azulAcento;
+                                  } else if (estado.toLowerCase() == 'cancelada') {
+                                    colorEstado = HotelPMSColors.textoEliminar;
+                                  } else {
+                                    colorEstado = HotelPMSColors.textoSecundario;
+                                  }
 
-                            return Column(
-                              children: [
-                                _construirTarjetaReserva(
-                                  idReserva: idReserva,
-                                  idStr: '#$idReserva',
-                                  nombre: nombre,
-                                  estado: estado,
-                                  checkIn: checkIn,
-                                  checkOut: checkOut,
-                                  habs: habs,
-                                  huespedes: nroPersona,
-                                  total: total,
-                                  colorEstado: colorEstado,
-                                ),
-                                const SizedBox(height: 12),
-                              ],
-                            );
-                          },
+                                  return Column(
+                                    children: [
+                                      _construirTarjetaReserva(
+                                        idReserva: idReserva,
+                                        idStr: '#$idReserva',
+                                        nombre: nombre,
+                                        estado: estado,
+                                        checkIn: checkIn,
+                                        checkOut: checkOut,
+                                        habs: habs,
+                                        huespedes: nroPersona,
+                                        total: total,
+                                        colorEstado: colorEstado,
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                            // Paginación server-side
+                            if (_totalPages > 1)
+                              PaginationWidget(
+                                currentPage: _currentPage,
+                                totalPages: _totalPages,
+                                totalItems: _totalItems,
+                                onPageChanged: (page) => _cargarDatos(page: page),
+                              ),
+                          ],
                         ),
             ),
           ],
@@ -374,68 +401,36 @@ class _PaginaReservasState extends State<PaginaReservas> {
     );
   }
 
-  void _confirmarCancelarReserva(int id) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text('Cancelar Reserva', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold)),
-        content: const Text('¿Está seguro de que desea cancelar esta reserva?', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('No', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ReservaService.cancelarReserva(id);
-                _cargarDatos();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error al cancelar reserva: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.naranjaAcento),
-            child: const Text('Sí, Cancelar'),
-          ),
-        ],
-      ),
+  Future<void> _confirmarCancelarReserva(int id) async {
+    final confirmado = await confirmarEdicion(
+      context,
+      tipoRegistro: 'reserva',
     );
+    if (!confirmado) return;
+
+    try {
+      await ReservaService.cancelarReserva(id);
+      _cargarDatos();
+      mostrarExito(context, 'Reserva cancelada exitosamente.');
+    } catch (e) {
+      mostrarErrorException(context, e);
+    }
   }
 
-  void _confirmarEliminarReserva(int id) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text('Eliminar Reserva', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold)),
-        content: const Text('¿Está seguro de que desea eliminar esta reserva de forma permanente?', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ReservaService.eliminarReserva(id);
-                _cargarDatos();
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error al eliminar reserva: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.textoEliminar),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+  Future<void> _confirmarEliminarReserva(int id) async {
+    final confirmado = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'reserva',
     );
+    if (!confirmado) return;
+
+    try {
+      await ReservaService.eliminarReserva(id);
+      _cargarDatos();
+      mostrarExito(context, 'Reserva eliminada exitosamente.');
+    } catch (e) {
+      mostrarErrorException(context, e);
+    }
   }
 }
 
@@ -601,16 +596,12 @@ class _ModalNuevaReservaState extends State<ModalNuevaReserva> {
                           onPressed: () {
                             if (pasoActual == 0) {
                               if (clienteSel == null || sucursalSel == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Por favor, seleccione un cliente y una sucursal')),
-                                );
+                                mostrarError(context, 'Por favor, seleccione un cliente y una sucursal');
                                 return;
                               }
                             } else if (pasoActual == 1) {
                               if (fechaInicio == null || fechaFin == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Por favor, seleccione fechas válidas de entrada y salida')),
-                                );
+                                mostrarError(context, 'Por favor, seleccione fechas válidas de entrada y salida');
                                 return;
                               }
                             }
@@ -631,11 +622,16 @@ class _ModalNuevaReservaState extends State<ModalNuevaReserva> {
                         child: ElevatedButton(
                           onPressed: () async {
                             if (habitacionesSeleccionadas.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Debe seleccionar al menos una habitación')),
-                              );
+                              mostrarError(context, 'Debe seleccionar al menos una habitación');
                               return;
                             }
+
+                            final confirmado = await confirmarCreacion(
+                              context,
+                              tipoRegistro: 'reserva',
+                              detalle: '${fechaInicio?.toString().split(' ')[0]} → ${fechaFin?.toString().split(' ')[0]}',
+                            );
+                            if (!confirmado) return;
 
                             final mappedHabs = habitacionesSeleccionadas.map((room) {
                               return {
@@ -662,11 +658,10 @@ class _ModalNuevaReservaState extends State<ModalNuevaReserva> {
                             try {
                               await ReservaService.crearReserva(payload);
                               widget.onSave();
+                              mostrarExito(context, 'Reserva creada exitosamente.');
                               Navigator.pop(context);
                             } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error al crear reserva: $e')),
-                              );
+                              mostrarErrorException(context, e);
                             }
                           },
                           style: ElevatedButton.styleFrom(

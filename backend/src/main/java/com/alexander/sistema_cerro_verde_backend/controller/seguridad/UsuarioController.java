@@ -64,6 +64,11 @@ public class UsuarioController {
             // Establecer el ID que viene por la URL al objeto usuario
             usuario.setIdUsuario(id);
 
+            // Hashear la contraseña si se proporcionó una nueva
+            if (usuario.getPassword() != null && !usuario.getPassword().isEmpty()) {
+                usuario.setPassword(bCryptPasswordEncoder.encode(usuario.getPassword()));
+            }
+
             Usuarios usuarioActualizado = usuarioServiceImpl.actualizarUsuario(usuario);
             return ResponseEntity.ok(usuarioActualizado);
 

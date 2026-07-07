@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.alexander.sistema_cerro_verde_backend.entity.compras.Productos;
@@ -16,8 +18,8 @@ public class ProductosService implements IProductosService{
     private ProductosRepository repoProductos;
 
     @Override
-    public List<Productos> buscarTodos(){ //Buscar todos los productos
-        return repoProductos.findAll();
+    public Page<Productos> buscarTodos(Pageable pageable){ //Buscar todos los productos con paginación
+        return repoProductos.findAll(pageable);
     }
 
     @Override

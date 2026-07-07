@@ -6,6 +6,8 @@ import '../../../rutas/nombres_rutas.dart';
 import '../../../core/network/api_client.dart';
 import '../modelos/modelo_producto.dart';
 import '../servicios/pos_service.dart';
+import '../servicios/clientes_service.dart';
+import '../../../core/utils/confirmacion.dart';
 
 class PaginaPOS extends StatefulWidget {
   const PaginaPOS({super.key});
@@ -89,13 +91,7 @@ class _PaginaPOSState extends State<PaginaPOS> {
         _carrito[producto] = 1;
       }
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${producto.nombre} agregado al carrito'),
-        duration: const Duration(milliseconds: 800),
-        backgroundColor: HotelPMSColors.naranjaAcento,
-      ),
-    );
+    mostrarExito(context, '${producto.nombre} agregado al carrito');
   }
 
   int get _totalItemsCarrito => _carrito.values.fold(0, (sum, q) => sum + q);
@@ -112,6 +108,13 @@ class _PaginaPOSState extends State<PaginaPOS> {
   Future<void> _procesarPago(BuildContext modalContext) async {
     if (_carrito.isEmpty) return;
 
+    final confirmado = await confirmarCreacion(
+      context,
+      tipoRegistro: 'venta',
+      detalle: '${_carrito.length} producto(s) - Total: S/ ${_total.toStringAsFixed(2)}',
+    );
+    if (confirmado != true) return;
+
     // Ocultar modal del carrito
     Navigator.pop(modalContext);
 
@@ -123,21 +126,39 @@ class _PaginaPOSState extends State<PaginaPOS> {
       final totalVenta = _total;
       final igvVenta = _igv;
 
-      // Buscar cliente por DNI si se ingresó uno
-      int idCliente = 1; // fallback por defecto
+      // Buscar cliente por DNI entre los registrados
+      int idCliente; // se asigna según resultado
       final dni = _dniRucController.text.trim();
+      final nombreCliente = _nombreClienteController.text.trim();
+
       if (dni.isNotEmpty) {
-        try {
-          final response = await ApiClient.get('/cerro-verde/dni/$dni');
-          if (response.statusCode == 200) {
-            final clienteData = jsonDecode(response.body);
-            if (clienteData is Map<String, dynamic> && clienteData.containsKey('id_cliente')) {
-              idCliente = clienteData['id_cliente'] as int;
-            }
+        final response = await ApiClient.get('/cerro-verde/clientes/por-dni/$dni');
+        if (response.statusCode == 200) {
+          final clienteData = jsonDecode(response.body) as Map<String, dynamic>;
+          idCliente = clienteData['idCliente'] as int;
+        } else if (nombreCliente.isNotEmpty) {
+          // Cliente no registrado — crear uno nuevo con nombre + DNI
+          final nuevoCliente = await ClientesService.crearCliente({
+            'nombre': nombreCliente,
+            'dniRuc': dni,
+          });
+          idCliente = (nuevoCliente['idCliente'] as num).toInt();
+        } else {
+          if (mounted) {
+            mostrarError(context, 'Cliente no encontrado. Ingrese el nombre del cliente.');
           }
-        } catch (_) {
-          // Si falla la búsqueda, mantener idCliente = 1
+          setState(() => _isLoading = false);
+          return;
         }
+      } else if (nombreCliente.isNotEmpty) {
+        // Sin DNI pero con nombre — crear cliente nuevo
+        final nuevoCliente = await ClientesService.crearCliente({
+          'nombre': nombreCliente,
+        });
+        idCliente = (nuevoCliente['idCliente'] as num).toInt();
+      } else {
+        // Sin DNI ni nombre — usar cliente mostrador (id=1)
+        idCliente = 1;
       }
 
       final ventaPayload = {
@@ -151,7 +172,7 @@ class _PaginaPOSState extends State<PaginaPOS> {
           "id": 1
         },
         "cliente": {
-          "id_cliente": idCliente
+          "idCliente": idCliente
         },
         "detalleVenta": _carrito.entries.map((entry) {
           final p = entry.key;
@@ -186,12 +207,7 @@ class _PaginaPOSState extends State<PaginaPOS> {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al registrar la venta: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -232,31 +248,16 @@ class _PaginaPOSState extends State<PaginaPOS> {
               Navigator.pop(context);
               _cargarProductos(); // Refrescamos stock de productos
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Descargando recibo desde: ${PosService.obtenerUrlPdfRecibo(ventaId)}'),
-                  backgroundColor: HotelPMSColors.naranjaAcento,
-                ),
-              );
+              mostrarExito(context, 'Descargando recibo desde: ${PosService.obtenerUrlPdfRecibo(ventaId)}');
 
               try {
                 final bytes = await PosService.obtenerPdfReciboBytes(ventaId);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Recibo descargado correctamente (${bytes.length} bytes).'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  mostrarExito(context, 'Recibo descargado correctamente (${bytes.length} bytes).');
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error al descargar recibo: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  mostrarErrorException(context, e);
                 }
               }
             },

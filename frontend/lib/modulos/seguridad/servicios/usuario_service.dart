@@ -17,4 +17,42 @@ class UsuarioService {
       rethrow;
     }
   }
+
+  /// Creates a new user.
+  static Future<Map<String, dynamic>> crearUsuario(Map<String, dynamic> usuarioData) async {
+    try {
+      final response = await ApiClient.post('/cerro-verde/usuarios/', body: usuarioData);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('Error al crear usuario: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Updates an existing user by ID.
+  static Future<Map<String, dynamic>> actualizarUsuario(int id, Map<String, dynamic> usuarioData) async {
+    try {
+      final response = await ApiClient.put('/cerro-verde/usuarios/$id', body: usuarioData);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('Error al actualizar usuario: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Deletes a user by ID.
+  static Future<void> eliminarUsuario(int id) async {
+    try {
+      final response = await ApiClient.delete('/cerro-verde/usuarios/$id');
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Error al eliminar usuario: ${response.statusCode}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

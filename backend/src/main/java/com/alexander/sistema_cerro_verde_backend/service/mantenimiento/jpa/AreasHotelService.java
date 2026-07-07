@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 
@@ -16,9 +18,9 @@ public class AreasHotelService implements IAreasHotelService{
     @Autowired
     private AreasHotelRepository repoAreasHotel;
 
-    @Override //buscar todos
-    public List<AreasHotel> buscarTodos() {
-        return repoAreasHotel.findAll();
+    @Override //buscar todos con paginación
+    public Page<AreasHotel> buscarTodos(Pageable pageable) {
+        return repoAreasHotel.findAll(pageable);
     }
 
     @Override //Buscar por id

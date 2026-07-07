@@ -3,6 +3,7 @@ import '../../../general/tema/colores_tema.dart';
 import '../../../general/tema/estilos_texto.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../rutas/nombres_rutas.dart';
+import '../../../core/utils/confirmacion.dart';
 import '../servicios/habitacion_service.dart';
 
 class PaginaHabitaciones extends StatefulWidget {
@@ -56,9 +57,7 @@ class _PaginaHabitacionesState extends State<PaginaHabitaciones> {
       setState(() {
         _cargando = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar datos: $e')),
-      );
+      mostrarErrorException(context, e);
     }
   }
 
@@ -413,61 +412,25 @@ class _PaginaHabitacionesState extends State<PaginaHabitaciones> {
     );
   }
 
-  void _confirmarEliminarHabitacion(int id, String numero) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text(
-          'Confirmar Eliminación',
-          style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold),
-        ),
-        content: Text(
-          '¿Está seguro de que desea eliminar la habitación $numero?',
-          style: const TextStyle(color: HotelPMSColors.textoPrincipal),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _eliminarHabitacion(id);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: HotelPMSColors.textoEliminar),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+  Future<void> _confirmarEliminarHabitacion(int id, String numero) async {
+    final confirmado = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'habitación',
+      nombre: numero,
     );
+    if (!confirmado) return;
+    _eliminarHabitacion(id);
   }
 
   Future<void> _eliminarHabitacion(int id) async {
     try {
       await HabitacionService.eliminarHabitacion(id);
       _cargarDatos();
+      mostrarExito(context, 'Habitación eliminada exitosamente.');
     } catch (e) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: HotelPMSColors.fondoTarjeta,
-          title: const Text(
-            'Error de Eliminación',
-            style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold),
-          ),
-          content: const Text(
-            'No se puede eliminar la habitación. Existen registros históricos de reservas o limpiezas asociados a esta habitación.',
-            style: TextStyle(color: HotelPMSColors.textoPrincipal),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Entendido', style: TextStyle(color: HotelPMSColors.naranjaAcento)),
-            ),
-          ],
-        ),
+      mostrarError(
+        context,
+        'No se puede eliminar la habitación. Existen registros históricos de reservas o limpiezas asociados a esta habitación.',
       );
     }
   }
@@ -733,16 +696,27 @@ class _PaginaHabitacionesState extends State<PaginaHabitaciones> {
                   onPressed: () async {
                     final numVal = int.tryParse(txtNumero.text);
                     if (numVal == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Por favor, ingrese un número válido')),
-                      );
+                      mostrarError(context, 'Por favor, ingrese un número válido');
                       return;
                     }
                     if (sucursalSel == null || pisoSel == null || tipoSel == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Por favor, complete todos los campos de selección')),
-                      );
+                      mostrarError(context, 'Por favor, complete todos los campos de selección');
                       return;
+                    }
+
+                    if (isEdit) {
+                      final confirmado = await confirmarEdicion(
+                        context,
+                        tipoRegistro: 'habitación',
+                        nombre: txtNumero.text,
+                      );
+                      if (!confirmado) return;
+                    } else {
+                      final confirmado = await confirmarCreacion(
+                        context,
+                        tipoRegistro: 'habitación',
+                      );
+                      if (!confirmado) return;
                     }
 
                     final body = <String, dynamic>{
@@ -764,12 +738,11 @@ class _PaginaHabitacionesState extends State<PaginaHabitaciones> {
                       } else {
                         await HabitacionService.guardarHabitacion(body);
                       }
+                      mostrarExito(context, isEdit ? 'Habitación actualizada exitosamente.' : 'Habitación creada exitosamente.');
                       Navigator.of(context).pop();
                       _cargarDatos();
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al guardar: $e')),
-                      );
+                      mostrarErrorException(context, e);
                     }
                   },
                   style: ElevatedButton.styleFrom(

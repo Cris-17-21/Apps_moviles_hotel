@@ -31,7 +31,6 @@ public class MovimientosInventario {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_sucursal")
-    @JsonIgnore
     private Sucursales sucursal;
     @ManyToOne
     @JoinColumn(name = "id_compra")
@@ -39,7 +38,6 @@ public class MovimientosInventario {
     private Compras compra;
     @ManyToOne
     @JoinColumn(name = "id_producto")
-    @JsonIgnore
     private Productos producto;
     @ManyToOne
     @JoinColumn(name = "id_venta")

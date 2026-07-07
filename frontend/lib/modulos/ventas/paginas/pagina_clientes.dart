@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../../general/tema/colores_tema.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../rutas/nombres_rutas.dart';
+import '../../../general/widgets/pagination_widget.dart';
 import '../servicios/clientes_service.dart';
+import '../../../core/utils/confirmacion.dart';
 
 class PaginaClientes extends StatefulWidget {
   const PaginaClientes({super.key});
@@ -17,6 +19,12 @@ class _PaginaClientesState extends State<PaginaClientes> {
   bool _isLoading = true;
   String? _errorMessage;
   final TextEditingController _searchController = TextEditingController();
+  String _filtroBusqueda = '';
+
+  // Paginación server-side
+  int _currentPage = 0;
+  int _totalPages = 0;
+  int _totalItems = 0;
 
   @override
   void initState() {
@@ -31,20 +39,26 @@ class _PaginaClientesState extends State<PaginaClientes> {
     super.dispose();
   }
 
-  Future<void> _cargarClientes() async {
+  Future<void> _cargarClientes({int page = 0}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final data = await ClientesService.obtenerClientes();
+      final result = await ClientesService.obtenerClientes(page: page);
+      if (!mounted) return;
+      final items = (result['items'] as List<dynamic>).map((c) => c as Map<String, dynamic>).toList();
       setState(() {
-        _clientes = data;
-        _clientesFiltrados = data;
+        _clientes = items;
+        _currentPage = page;
+        _totalPages = result['totalPages'] as int;
+        _totalItems = result['totalElements'] as int;
         _isLoading = false;
       });
+      _aplicarFiltroLocal();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'No se pudieron cargar los clientes. Verifique su conexión.';
         _isLoading = false;
@@ -53,16 +67,20 @@ class _PaginaClientesState extends State<PaginaClientes> {
   }
 
   void _filtrarClientes() {
-    final query = _searchController.text.toLowerCase();
+    _filtroBusqueda = _searchController.text.toLowerCase();
+    _aplicarFiltroLocal();
+  }
+
+  void _aplicarFiltroLocal() {
     setState(() {
-      if (query.isEmpty) {
-        _clientesFiltrados = _clientes;
+      if (_filtroBusqueda.isEmpty) {
+        _clientesFiltrados = List.from(_clientes);
       } else {
         _clientesFiltrados = _clientes.where((c) {
           final nombre = (c['nombre'] ?? '').toString().toLowerCase();
-          final apellido = (c['apellido'] ?? '').toString().toLowerCase();
-          final dni = (c['dni_ruc'] ?? '').toString().toLowerCase();
-          return nombre.contains(query) || apellido.contains(query) || dni.contains(query);
+          final dni = (c['dniRuc'] ?? '').toString().toLowerCase();
+          final telefono = (c['telefono'] ?? '').toString().toLowerCase();
+          return nombre.contains(_filtroBusqueda) || dni.contains(_filtroBusqueda) || telefono.contains(_filtroBusqueda);
         }).toList();
       }
     });
@@ -75,19 +93,22 @@ class _PaginaClientesState extends State<PaginaClientes> {
     );
     if (result == null) return;
 
+    final confirmado = await confirmarCreacion(
+      context,
+      tipoRegistro: 'cliente',
+      detalle: result['nombre']?.toString() ?? '',
+    );
+    if (confirmado != true) return;
+
     try {
       await ClientesService.crearCliente(result);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cliente creado correctamente'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Cliente creado correctamente');
         _cargarClientes();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al crear cliente: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -99,60 +120,43 @@ class _PaginaClientesState extends State<PaginaClientes> {
     );
     if (result == null) return;
 
+    final confirmado = await confirmarEdicion(
+      context,
+      tipoRegistro: 'cliente',
+      nombre: cliente['nombre']?.toString() ?? '',
+    );
+    if (confirmado != true) return;
+
     try {
       await ClientesService.actualizarCliente(result);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cliente actualizado correctamente'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Cliente actualizado correctamente');
         _cargarClientes();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al actualizar cliente: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
 
   Future<void> _confirmarEliminar(Map<String, dynamic> cliente) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text('Confirmar eliminación', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-        content: Text(
-          '¿Eliminar cliente "${cliente['nombre']} ${cliente['apellido']}"?',
-          style: const TextStyle(color: HotelPMSColors.textoSecundario),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: HotelPMSColors.textoSecundario)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar', style: TextStyle(color: HotelPMSColors.textoEliminar)),
-          ),
-        ],
-      ),
+    final confirm = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'cliente',
+      nombre: cliente['nombre']?.toString() ?? '',
     );
     if (confirm != true) return;
 
     try {
-      await ClientesService.eliminarCliente(cliente['id_cliente'] as int);
+      await ClientesService.eliminarCliente(cliente['idCliente'] as int);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cliente eliminado correctamente'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Cliente eliminado correctamente');
         _cargarClientes();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al eliminar cliente: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -165,11 +169,6 @@ class _PaginaClientesState extends State<PaginaClientes> {
         rutaActual: NombresRutas.clientes,
         tituloBarra: 'HotelPMS',
         cuerpo: _buildCuerpo(),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _mostrarDialogoCrear,
-        backgroundColor: HotelPMSColors.naranjaAcento,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -214,13 +213,32 @@ class _PaginaClientesState extends State<PaginaClientes> {
             ],
           ),
         ),
+        // Botón Nuevo Cliente
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _mostrarDialogoCrear,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: HotelPMSColors.naranjaAcento,
+                foregroundColor: HotelPMSColors.textoPrincipal,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('Nuevo', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: TextField(
             controller: _searchController,
             style: const TextStyle(color: HotelPMSColors.textoPrincipal),
             decoration: InputDecoration(
-              hintText: 'Buscar por nombre, apellido o DNI...',
+              hintText: 'Buscar por nombre, documento o teléfono...',
               hintStyle: const TextStyle(color: HotelPMSColors.textoSecundario),
               prefixIcon: const Icon(Icons.search, color: HotelPMSColors.textoSecundario),
               filled: true,
@@ -236,42 +254,58 @@ class _PaginaClientesState extends State<PaginaClientes> {
               ? const Center(child: Text('No se encontraron clientes', style: TextStyle(color: HotelPMSColors.textoSecundario)))
               : RefreshIndicator(
                   onRefresh: _cargarClientes,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(HotelPMSColors.fondoInput),
-                      dataRowColor: WidgetStateProperty.all(HotelPMSColors.fondoTarjeta),
-                      columns: const [
-                        DataColumn(label: Text('ID', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Nombre', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Apellido', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('DNI/RUC', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Teléfono', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Acciones', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                      ],
-                      rows: _clientesFiltrados.map((c) => DataRow(cells: [
-                        DataCell(Text('${c['id_cliente']}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${c['nombre'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${c['apellido'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${c['dni_ruc'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${c['telefono'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: HotelPMSColors.naranjaAcento, size: 20),
-                              onPressed: () => _mostrarDialogoEditar(c),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: HotelPMSColors.textoEliminar, size: 20),
-                              onPressed: () => _confirmarEliminar(c),
-                            ),
+                  child: Scrollbar(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                          headingRowColor: WidgetStateProperty.all(HotelPMSColors.fondoInput),
+                          dataRowColor: WidgetStateProperty.all(HotelPMSColors.fondoTarjeta),
+                          columns: const [
+                            DataColumn(label: Text('ID', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Nombre', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Documento', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Teléfono', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Correo', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('Acciones', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
                           ],
-                        )),
-                      ])).toList(),
+                          rows: _clientesFiltrados.map((c) => DataRow(cells: [
+                            DataCell(Text('${c['idCliente']}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                            DataCell(Text('${c['nombre'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                            DataCell(Text('${c['dniRuc'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                            DataCell(Text('${c['telefono'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                            DataCell(Text('${c['correo'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                            DataCell(Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: HotelPMSColors.naranjaAcento, size: 20),
+                                  onPressed: () => _mostrarDialogoEditar(c),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: HotelPMSColors.textoEliminar, size: 20),
+                                  onPressed: () => _confirmarEliminar(c),
+                                ),
+                              ],
+                            )),
+                          ])).toList(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
         ),
+        // Paginación server-side
+        if (_totalPages > 1)
+          Container(
+            color: HotelPMSColors.fondoTarjeta,
+            child: PaginationWidget(
+              currentPage: _currentPage,
+              totalPages: _totalPages,
+              totalItems: _totalItems,
+              onPageChanged: (page) => _cargarClientes(page: page),
+            ),
+          ),
       ],
     );
   }
@@ -290,10 +324,8 @@ class _ClienteDialog extends StatefulWidget {
 class _ClienteDialogState extends State<_ClienteDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nombreCtrl;
-  late TextEditingController _apellidoCtrl;
   late TextEditingController _dniCtrl;
   late TextEditingController _telefonoCtrl;
-  late TextEditingController _direccionCtrl;
   late TextEditingController _emailCtrl;
 
   @override
@@ -301,20 +333,16 @@ class _ClienteDialogState extends State<_ClienteDialog> {
     super.initState();
     final d = widget.datosExistentes ?? {};
     _nombreCtrl = TextEditingController(text: d['nombre']?.toString() ?? '');
-    _apellidoCtrl = TextEditingController(text: d['apellido']?.toString() ?? '');
-    _dniCtrl = TextEditingController(text: d['dni_ruc']?.toString() ?? '');
+    _dniCtrl = TextEditingController(text: d['dniRuc']?.toString() ?? '');
     _telefonoCtrl = TextEditingController(text: d['telefono']?.toString() ?? '');
-    _direccionCtrl = TextEditingController(text: d['direccion']?.toString() ?? '');
-    _emailCtrl = TextEditingController(text: d['email']?.toString() ?? '');
+    _emailCtrl = TextEditingController(text: d['correo']?.toString() ?? '');
   }
 
   @override
   void dispose() {
     _nombreCtrl.dispose();
-    _apellidoCtrl.dispose();
     _dniCtrl.dispose();
     _telefonoCtrl.dispose();
-    _direccionCtrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
   }
@@ -323,15 +351,13 @@ class _ClienteDialogState extends State<_ClienteDialog> {
     if (!_formKey.currentState!.validate()) return;
     final data = <String, dynamic>{
       'nombre': _nombreCtrl.text.trim(),
-      'apellido': _apellidoCtrl.text.trim(),
-      'dni_ruc': _dniCtrl.text.trim(),
+      'dniRuc': _dniCtrl.text.trim(),
       'telefono': _telefonoCtrl.text.trim(),
-      'direccion': _direccionCtrl.text.trim(),
-      'email': _emailCtrl.text.trim(),
+      'correo': _emailCtrl.text.trim(),
     };
     final existentes = widget.datosExistentes;
-    if (existentes != null && existentes.containsKey('id_cliente')) {
-      data['id_cliente'] = existentes['id_cliente'];
+    if (existentes != null && existentes.containsKey('idCliente')) {
+      data['idCliente'] = existentes['idCliente'];
     }
     Navigator.pop(context, data);
   }
@@ -348,11 +374,9 @@ class _ClienteDialogState extends State<_ClienteDialog> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _campo('Nombre', _nombreCtrl, required: true),
-              _campo('Apellido', _apellidoCtrl, required: true),
-              _campo('DNI/RUC', _dniCtrl, required: true),
+              _campo('DNI/RUC', _dniCtrl),
               _campo('Teléfono', _telefonoCtrl),
-              _campo('Dirección', _direccionCtrl),
-              _campo('Email', _emailCtrl),
+              _campo('Correo', _emailCtrl),
             ],
           ),
         ),

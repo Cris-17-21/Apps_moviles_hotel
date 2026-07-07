@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.alexander.sistema_cerro_verde_backend.entity.mantenimiento.Limpiezas;
@@ -17,9 +19,9 @@ public class LimpiezasService implements ILimpiezasService{
     @Autowired
     private LimpiezasRepository repoLimpiezas;
 
-    @Override //buscar todos
-    public List<Limpiezas> buscarTodos() {
-        return repoLimpiezas.findAll();
+    @Override //buscar todos con paginación
+    public Page<Limpiezas> buscarTodos(Pageable pageable) {
+        return repoLimpiezas.findAll(pageable);
     }
 
     @Override //Buscar por id

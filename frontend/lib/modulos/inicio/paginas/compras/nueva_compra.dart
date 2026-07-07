@@ -4,6 +4,7 @@ import '../../../../general/layout/layout_principal.dart';
 import '../../../../general/tema/colores_tema.dart';
 import '../../../../general/tema/estilos_texto.dart';
 import '../../../../rutas/nombres_rutas.dart';
+import '../../../../core/utils/confirmacion.dart';
 import 'servicios/compras_service.dart';
 import 'servicios/productos_service.dart';
 import 'servicios/proveedores_service.dart';
@@ -105,18 +106,13 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
                 correlativoData['serie'] ??
                 '')
             .toString();
+        _numComprobanteController.text = _correlativo;
         _isLoadingData = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoadingData = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al cargar datos: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al cargar datos: ${e.toString()}');
     }
   }
 
@@ -147,35 +143,21 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
 
   void _agregarProductoAlDetalle() {
     if (_selectedProducto == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Seleccione un producto'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Seleccione un producto');
       return;
     }
 
     final cantidad = double.tryParse(_cantidadController.text) ?? 1;
     if (cantidad <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('La cantidad debe ser mayor a 0'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'La cantidad debe ser mayor a 0');
       return;
     }
 
     final idProducto = _selectedProducto!['id_producto'] ?? 0;
     final nombreProducto =
-        _selectedProducto!['nombre_producto'] ?? 'Producto';
-    // precio from API response; might be 'precio' or 'precio_venta'
+        _selectedProducto!['nombre'] ?? 'Producto';
     final precio =
-        (_selectedProducto!['precio'] ?? _selectedProducto!['precio_venta'] ?? 0)
-            .toDouble();
+        (_selectedProducto!['precioVenta'] ?? 0).toDouble();
 
     // Check if product already added — if so, update quantity
     final existingIndex =
@@ -197,7 +179,15 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
     });
   }
 
-  void _eliminarDetalle(int index) {
+  Future<void> _eliminarDetalle(int index) async {
+    final item = _detalleItems[index];
+    final confirm = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'producto',
+      nombre: item.nombreProducto,
+    );
+    if (!confirm) return;
+
     setState(() => _detalleItems.removeAt(index));
   }
 
@@ -205,43 +195,43 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedProveedor == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Seleccione un proveedor'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Seleccione un proveedor');
       return;
     }
 
     if (_detalleItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Agregue al menos un producto a la compra'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Agregue al menos un producto a la compra');
       return;
     }
 
     setState(() => _isSubmitting = true);
 
+    final confirmado = await confirmarCreacion(
+      context,
+      tipoRegistro: 'compra',
+      detalle:
+          '${_selectedProveedor!['razon_social'] ?? ''} — S/ ${_totalCompra.toStringAsFixed(2)}',
+    );
+    if (!confirmado) {
+      setState(() => _isSubmitting = false);
+      return;
+    }
+
     try {
       final payload = {
-        'num_comprobante': _numComprobanteController.text.trim(),
+        'numeroDoc': _numComprobanteController.text.trim(),
         'fecha_compra': _formatFecha(_fechaCompra),
-        'total_compra': _totalCompra,
+        'total': _totalCompra,
         'sucursal': {'id': 1},
         'proveedor': {
           'ruc_proveedor': _selectedProveedor!['ruc_proveedor'] ?? '',
         },
-        'detalleCompra': _detalleItems.map((item) {
+        'detallecompra': _detalleItems.map((item) {
           return {
             'producto': {'id_producto': item.idProducto},
             'cantidad': item.cantidad,
             'precio': item.precio,
+            'subtotal': item.subtotal,
           };
         }).toList(),
       };
@@ -249,13 +239,7 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
       await ComprasService.crearCompra(payload);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Compra registrada exitosamente'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarExito(context, 'Compra registrada exitosamente');
       Navigator.pushNamedAndRemoveUntil(
         context,
         NombresRutas.comprasLista,
@@ -264,13 +248,7 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error al registrar compra: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      mostrarError(context, 'Error al registrar compra: ${e.toString()}');
     }
   }
 
@@ -327,7 +305,7 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
               value: _selectedProveedor,
               items: _proveedores.map((p) {
                 final ruc = p['ruc_proveedor'] ?? '';
-                final nombre = p['nombre_proveedor'] ?? '';
+                final nombre = p['razon_social'] ?? '';
                 return DropdownMenuItem<Map<String, dynamic>>(
                   value: p,
                   child: Text(
@@ -417,7 +395,7 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
                     value: _selectedProducto,
                     items: _productosDisponibles.map((p) {
                       final id = p['id_producto'] ?? '';
-                      final nombre = p['nombre_producto'] ?? '';
+                      final nombre = p['nombre'] ?? '';
                       return DropdownMenuItem<Map<String, dynamic>>(
                         value: p,
                         child: Text(
@@ -450,23 +428,27 @@ class _NuevaCompraPageState extends State<NuevaCompraPage> {
                       ),
                       const SizedBox(width: 12),
                       // Botón Agregar
-                      ElevatedButton.icon(
-                        onPressed: _agregarProductoAlDetalle,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Agregar'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: HotelPMSColors.naranjaAcento,
-                          foregroundColor:
-                              HotelPMSColors.textoPrincipal,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 14,
+                      IntrinsicWidth(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                          onPressed: _agregarProductoAlDetalle,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Agregar'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: HotelPMSColors.naranjaAcento,
+                            foregroundColor:
+                                HotelPMSColors.textoPrincipal,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                            ),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
+              ],
               ),
             ),
             const SizedBox(height: 16),

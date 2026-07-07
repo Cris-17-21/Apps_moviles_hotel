@@ -3,11 +3,14 @@ package com.alexander.sistema_cerro_verde_backend.service.compras;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.alexander.sistema_cerro_verde_backend.dto.compras.MovimientoInventarioDTO;
 import com.alexander.sistema_cerro_verde_backend.entity.compras.MovimientosInventario;
 
 public interface IMovimientosInventarioService {
-    List<MovimientoInventarioDTO> buscarTodos();
+    Page<MovimientoInventarioDTO> buscarTodos(Pageable pageable);
 
     void guardar(MovimientosInventario movimientoinventario);
 

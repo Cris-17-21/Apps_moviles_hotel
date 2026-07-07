@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.alexander.sistema_cerro_verde_backend.service.compras.IDetallesCompraService;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/cerro-verde")
 @CrossOrigin("*")
 public class DetallesCompraController {
     @Autowired

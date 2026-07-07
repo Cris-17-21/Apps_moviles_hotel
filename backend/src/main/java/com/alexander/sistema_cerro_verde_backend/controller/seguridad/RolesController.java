@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 import com.alexander.sistema_cerro_verde_backend.entity.seguridad.Roles;
 import com.alexander.sistema_cerro_verde_backend.repository.seguridad.RolesRepository;
 import com.alexander.sistema_cerro_verde_backend.service.seguridad.IRolesService;
@@ -65,7 +67,22 @@ public ResponseEntity<?> actualizarRol(@RequestBody Roles rol) {
 }
 
 
-    @GetMapping("/roles/{id}")
+    @PostMapping("/roles/{id}/permisos")
+    public ResponseEntity<?> asignarPermisos(@PathVariable Integer id, @RequestBody Map<String, List<Integer>> body) {
+        try {
+            List<Integer> permisosIds = body.get("permisosIds");
+            if (permisosIds == null) {
+                return ResponseEntity.badRequest().body("Se requiere 'permisosIds' en el cuerpo");
+            }
+            Roles rolActualizado = rolesService.asignarPermisosARol(id, permisosIds);
+            return ResponseEntity.ok(rolActualizado);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al asignar permisos: " + e.getMessage());
+        }
+    }
+
+     @GetMapping("/roles/{id}")
     public ResponseEntity<Roles> obtenerRol(@PathVariable Integer id) {
         Roles rol = rolesService.obtenerRolPorId(id);
         if (rol == null) {

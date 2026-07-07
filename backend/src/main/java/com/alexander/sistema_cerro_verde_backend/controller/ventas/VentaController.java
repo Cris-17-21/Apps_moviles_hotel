@@ -6,6 +6,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -33,9 +36,9 @@ public class VentaController {
     @Autowired
     private IVentaService ventaService;
 
-    @RequestMapping("/venta")
-    public List<Ventas> buscarTodos() {
-        return ventaService.buscarTodos();
+    @GetMapping("/venta")
+    public Page<Ventas> buscarTodos(@PageableDefault(size = 10, page = 0) Pageable pageable) {
+        return ventaService.buscarTodos(pageable);
     }
 
     @RequestMapping("/venta/{id}")

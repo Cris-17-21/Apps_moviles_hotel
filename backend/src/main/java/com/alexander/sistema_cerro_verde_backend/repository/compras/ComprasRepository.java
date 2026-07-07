@@ -13,8 +13,8 @@ import com.alexander.sistema_cerro_verde_backend.entity.reportes.ProveedorReport
 
 public interface ComprasRepository extends JpaRepository<Compras, Integer> {
 
-    @Query("SELECT c FROM Compras c ORDER BY c.id_compra DESC")
-    Optional<Compras> obtenerUltimaCompra();
+    @Query(value = "SELECT correlativo FROM compras ORDER BY id_compra DESC LIMIT 1", nativeQuery = true)
+    Optional<String> obtenerUltimoCorrelativo();
 
     @Query(value = """
         SELECT 

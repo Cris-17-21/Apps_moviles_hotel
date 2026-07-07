@@ -7,6 +7,9 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -34,8 +37,8 @@ public class ClientesController {
     private ApiCliente api;
 
     @GetMapping("/clientes")
-    public List<Clientes> buscarTodos() {
-        return serviceClientes.buscarTodos();
+    public Page<Clientes> buscarTodos(@PageableDefault(size = 10, page = 0) Pageable pageable) {
+        return serviceClientes.buscarTodos(pageable);
     }
 
     @GetMapping("/clientes/{id}")
@@ -71,6 +74,13 @@ public class ClientesController {
             response.put("mensaje", "Ocurrió un problema. Vuelva a intentarlo");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
+
+    @GetMapping("/clientes/por-dni/{dni}")
+    public ResponseEntity<Clientes> buscarPorDni(@PathVariable("dni") String dni) {
+        return serviceClientes.buscarPorDniRuc(dni)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/dni/{id}")

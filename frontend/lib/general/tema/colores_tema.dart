@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class HotelPMSColors {
   // Fondos principales (Noir Aesthetic)
+  static const Color fondoPrincipal = Color(0xFF09090B); // Fondo general de páginas
   static const Color fondoOscuro = Color(0xFF09090B); // Fondo de la app
   static const Color fondoTarjeta = Color(0xFF18181B); // Tarjetas y contenedores
   static const Color fondoInput = Color(0xFF27272A); // Buscador y campos

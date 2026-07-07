@@ -3,6 +3,7 @@ import '../../../general/tema/colores_tema.dart';
 import '../../../general/layout/layout_principal.dart';
 import '../../../rutas/nombres_rutas.dart';
 import '../servicios/mantenimiento_service.dart';
+import '../../../core/utils/confirmacion.dart';
 
 class PaginaPersonalLimpieza extends StatefulWidget {
   const PaginaPersonalLimpieza({super.key});
@@ -59,10 +60,8 @@ class _PaginaPersonalLimpiezaState extends State<PaginaPersonalLimpieza> {
         _personalFiltrados = _personal;
       } else {
         _personalFiltrados = _personal.where((p) {
-          final nombre = (p['nombre'] ?? '').toString().toLowerCase();
-          final apellido = (p['apellido'] ?? '').toString().toLowerCase();
-          final dni = (p['dni'] ?? '').toString().toLowerCase();
-          return nombre.contains(query) || apellido.contains(query) || dni.contains(query);
+          final nombres = (p['nombres'] ?? '').toString().toLowerCase();
+          return nombres.contains(query);
         }).toList();
       }
     });
@@ -75,20 +74,23 @@ class _PaginaPersonalLimpiezaState extends State<PaginaPersonalLimpieza> {
     );
     if (result == null) return;
 
+    final confirmado = await confirmarCreacion(
+      context,
+      tipoRegistro: 'personal',
+      detalle: result['nombres']?.toString() ?? '',
+    );
+    if (confirmado != true) return;
+
     try {
       result['sucursal'] = {'id': 1};
       await MantenimientoService.crearPersonalLimpieza(result);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Personal creado correctamente'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Personal creado correctamente');
         _cargarPersonal();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al crear personal: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -100,61 +102,44 @@ class _PaginaPersonalLimpiezaState extends State<PaginaPersonalLimpieza> {
     );
     if (result == null) return;
 
+    final confirmado = await confirmarEdicion(
+      context,
+      tipoRegistro: 'personal',
+      nombre: persona['nombres']?.toString() ?? '',
+    );
+    if (confirmado != true) return;
+
     try {
       result['sucursal'] = {'id': 1};
-      await MantenimientoService.actualizarPersonalLimpieza(persona['id'] as int, result);
+      await MantenimientoService.actualizarPersonalLimpieza(persona['id_personal_limpieza'] as int, result);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Personal actualizado correctamente'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Personal actualizado correctamente');
         _cargarPersonal();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al actualizar personal: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
 
   Future<void> _confirmarEliminar(Map<String, dynamic> persona) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: HotelPMSColors.fondoTarjeta,
-        title: const Text('Confirmar eliminación', style: TextStyle(color: HotelPMSColors.textoPrincipal)),
-        content: Text(
-          '¿Eliminar a "${persona['nombre']} ${persona['apellido']}"?',
-          style: const TextStyle(color: HotelPMSColors.textoSecundario),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: HotelPMSColors.textoSecundario)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar', style: TextStyle(color: HotelPMSColors.textoEliminar)),
-          ),
-        ],
-      ),
+    final confirm = await confirmarEliminacion(
+      context,
+      tipoRegistro: 'personal',
+      nombre: persona['nombres']?.toString() ?? '',
     );
     if (confirm != true) return;
 
     try {
-      await MantenimientoService.eliminarPersonalLimpieza(persona['id'] as int);
+      await MantenimientoService.eliminarPersonalLimpieza(persona['id_personal_limpieza'] as int);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Personal eliminado correctamente'), backgroundColor: Colors.green),
-        );
+        mostrarExito(context, 'Personal eliminado correctamente');
         _cargarPersonal();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al eliminar personal: $e'), backgroundColor: Colors.red),
-        );
+        mostrarErrorException(context, e);
       }
     }
   }
@@ -245,20 +230,14 @@ class _PaginaPersonalLimpiezaState extends State<PaginaPersonalLimpieza> {
                       dataRowColor: WidgetStateProperty.all(HotelPMSColors.fondoTarjeta),
                       columns: const [
                         DataColumn(label: Text('ID', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Nombre', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Apellido', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('DNI', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Teléfono', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('Turno', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('Nombres', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('Sucursal', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
                         DataColumn(label: Text('Acciones', style: TextStyle(color: HotelPMSColors.textoPrincipal, fontWeight: FontWeight.bold))),
                       ],
                       rows: _personalFiltrados.map((p) => DataRow(cells: [
-                        DataCell(Text('${p['id'] ?? p['id_personal'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${p['nombre'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${p['apellido'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${p['dni'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${p['telefono'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
-                        DataCell(Text('${p['turno'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                        DataCell(Text('${p['id_personal_limpieza'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                        DataCell(Text('${p['nombres'] ?? ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
+                        DataCell(Text('${p['sucursal'] is Map ? p['sucursal']['nombre'] ?? '' : ''}', style: const TextStyle(color: HotelPMSColors.textoPrincipal))),
                         DataCell(Row(
                           children: [
                             IconButton(
@@ -293,41 +272,25 @@ class _PersonalDialog extends StatefulWidget {
 
 class _PersonalDialogState extends State<_PersonalDialog> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nombreCtrl;
-  late TextEditingController _apellidoCtrl;
-  late TextEditingController _dniCtrl;
-  late TextEditingController _telefonoCtrl;
-  late TextEditingController _turnoCtrll;
+  late TextEditingController _nombresCtrl;
 
   @override
   void initState() {
     super.initState();
     final d = widget.datosExistentes ?? {};
-    _nombreCtrl = TextEditingController(text: d['nombre']?.toString() ?? '');
-    _apellidoCtrl = TextEditingController(text: d['apellido']?.toString() ?? '');
-    _dniCtrl = TextEditingController(text: d['dni']?.toString() ?? '');
-    _telefonoCtrl = TextEditingController(text: d['telefono']?.toString() ?? '');
-    _turnoCtrll = TextEditingController(text: d['turno']?.toString() ?? '');
+    _nombresCtrl = TextEditingController(text: d['nombres']?.toString() ?? '');
   }
 
   @override
   void dispose() {
-    _nombreCtrl.dispose();
-    _apellidoCtrl.dispose();
-    _dniCtrl.dispose();
-    _telefonoCtrl.dispose();
-    _turnoCtrll.dispose();
+    _nombresCtrl.dispose();
     super.dispose();
   }
 
   void _guardar() {
     if (!_formKey.currentState!.validate()) return;
     final data = <String, dynamic>{
-      'nombre': _nombreCtrl.text.trim(),
-      'apellido': _apellidoCtrl.text.trim(),
-      'dni': _dniCtrl.text.trim(),
-      'telefono': _telefonoCtrl.text.trim(),
-      'turno': _turnoCtrll.text.trim(),
+      'nombres': _nombresCtrl.text.trim(),
     };
     Navigator.pop(context, data);
   }
@@ -343,11 +306,7 @@ class _PersonalDialogState extends State<_PersonalDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _campo('Nombre', _nombreCtrl, required: true),
-              _campo('Apellido', _apellidoCtrl, required: true),
-              _campo('DNI', _dniCtrl, required: true),
-              _campo('Teléfono', _telefonoCtrl),
-              _campo('Turno', _turnoCtrll),
+              _campo('Nombres completos', _nombresCtrl, required: true),
             ],
           ),
         ),

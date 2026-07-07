@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:hoteleria_erp/app.dart';
@@ -91,6 +92,27 @@ class ApiClient {
       final response = await _client.delete(url, headers: mergedHeaders);
       _handleResponse(response);
       return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Sends a GET request and returns the raw bytes.
+  /// Used for downloading files such as reports.
+  static Future<Uint8List> getBytes(String path, {Map<String, String>? headers}) async {
+    final url = Uri.parse('${AppConstants.baseUrl}$path');
+    final mergedHeaders = await _getHeaders(additionalHeaders: {
+      'Accept': 'application/octet-stream',
+      if (headers != null) ...headers,
+    });
+
+    try {
+      final response = await _client.get(url, headers: mergedHeaders);
+      _handleResponse(response);
+      if (response.statusCode != 200) {
+        throw Exception('Error al descargar el recurso: ${response.statusCode}');
+      }
+      return response.bodyBytes;
     } catch (e) {
       rethrow;
     }

@@ -55,4 +55,20 @@ class RolService {
       rethrow;
     }
   }
+
+  /// Asigna permisos a un rol.
+  static Future<Map<String, dynamic>> asignarPermisos(int idRol, List<int> permisosIds) async {
+    try {
+      final response = await ApiClient.post(
+        '/cerro-verde/roles/$idRol/permisos',
+        body: {'permisosIds': permisosIds},
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+      throw Exception('Error al asignar permisos: ${response.statusCode}');
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
